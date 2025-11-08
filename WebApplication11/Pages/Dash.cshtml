@@ -1,0 +1,655 @@
+﻿@page
+@model WebApplication11.Pages.DashModel
+@using WebApplication11.Pages
+@using System
+@{
+    ViewData["Title"] = "Inventory Dashboard";
+    // Define a list of dynamic icons (SVG path data) and associated colors for the cards.
+    var iconDataList = new[] {
+        // Icon 1: T-Shirt/Clothing (Indigo)
+        new { Color = "text-indigo-600", BgColor = "bg-indigo-100", Path = "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3.8 6h16.4M15 10a3 3 0 1 1-6 0" },
+        // Icon 2: Box/Package (Green)
+        new { Color = "text-green-600", BgColor = "bg-green-100", Path = "M12 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6m-4 4h4a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8" },
+        // Icon 3: Device/Laptop (Blue)
+        new { Color = "text-blue-600", BgColor = "bg-blue-100", Path = "M18 10h-2M2 14v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2M4 10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4z" },
+        // Icon 4: Price Tag/General Item (Yellow)
+        new { Color = "text-yellow-600", BgColor = "bg-yellow-100", Path = "M6.5 1h11a.5.5 0 0 1 .5.5v11.5L12 18.5 6 13V1.5a.5.5 0 0 1 .5-.5z" }
+    };
+    var iconCount = iconDataList.Length;
+    var index = 0;
+}
+
+<div class="flex flex-col space-y-6">
+
+    <div class="flex justify-between items-center relative">
+        <h1 class="text-2xl font-semibold text-gray-900">Product Inventory (@Model.Items.Count Items)</h1>
+
+        <div class="flex items-center space-x-3">
+
+            @* --- NEW LOGOUT BUTTON --- *@
+            <form method="post" asp-page-handler="Logout" class="inline">
+                <button type="submit"
+                        class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg shadow-lg hover:bg-red-700 transition duration-150 ease-in-out flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    <span>Logout</span>
+                </button>
+            </form>
+            @* --- END LOGOUT BUTTON --- *@
+
+            <button id="openMenuBtn"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg shadow-lg hover:bg-gray-300 transition duration-150 ease-in-out flex items-center space-x-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                <span>Menu Options</span>
+            </button>
+        </div>
+
+
+        <div id="menuOptionsModal"
+             class="hidden absolute right-0 top-full mt-2 w-56 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-40">
+
+            <div class="py-1">
+                <button onclick="openCreateModal()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span>Create New Item</span>
+                </button>
+                @* ADDED TUTORIAL BUTTON *@
+                <button id="tutorialBtn" onclick="showTutorial()"
+                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>How to Use (Tutorial)</span>
+                </button>
+                @* END TUTORIAL BUTTON *@
+                <button id="selectMoreToggle"
+                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
+                    <span>Select More Items</span>
+                </button>
+
+                @* Re-Index Button (Fix) *@
+                <form method="post" asp-page-handler="ReIndex" onsubmit="return confirm('WARNING: This will re-index ALL items sequentially starting from 1. Use this only if the order is broken. Continue?');">
+                    <button type="submit"
+                            class="w-full text-left px-4 py-2 text-sm text-yellow-700 bg-yellow-50 hover:bg-yellow-100 flex items-center space-x-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0l3-3m-3 3l3 3m12 6v-5h-.582m0 0a8.003 8.003 0 01-15.356-2m15.356 2l-3 3m3-3l-3-3"></path></svg>
+                        <span>Re-Index Positions (Fix)</span>
+                    </button>
+                </form>
+            </div>
+            <div class="py-1">
+
+                <a href="mongodb://localhost:27017/?appName=MongoDB%20Compass&readPreference=primary&ssl=false"
+                   target="_blank"
+                   class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10m0 0h16M4 7h16M4 7l4 4m0 0l4-4m-4 4v6m4-6v6m-4 6h8m-4-6h-8M4 17l4-4m0 0l4 4m-4-4v6m4-6v6"></path>
+                    </svg>
+                    <span>Open MongoDB Compass</span>
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="multiSelectBar" class="hidden w-full bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm p-3 -mt-4 mb-4 z-10">
+        <div class="flex justify-between items-center">
+            <p class="text-sm font-medium text-indigo-700">
+                <span id="selectedCount">0</span> item(s) selected
+            </p>
+            <div class="flex items-center space-x-3">
+
+
+                <form method="post" asp-page-handler="Swap" id="multiSwitchForm">
+                    <input type="hidden" name="ItemsToSwitch" id="swap_item1">
+                    <input type="hidden" name="ItemsToSwitch" id="swap_item2">
+                    <button type="submit" id="multiSwitchBtn"
+                            class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2"
+                            disabled>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+
+                        <span>Switch 2 Items</span>
+                    </button>
+                </form>
+
+                <form method="post" asp-page-handler="MassDelete" onsubmit="return confirm('Are you sure you want to delete all selected items?');"
+                      id="massDeleteForm">
+                    <input type="hidden" name="ItemsToDelete" id="mass_delete_items">
+                    <button type="submit" id="massDeleteBtn"
+                            class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2"
+                            disabled>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <span>Mass Delete (<span id="deleteCount">0</span>)</span>
+
+                    </button>
+                </form>
+
+                <button onclick="exitMultiSelect()" class="text-indigo-700 hover:text-indigo-900">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="inventoryDisplay"
+         class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-inner max-h-[70vh] custom-scrollbar overflow-y-auto">
+
+        @if (Model.Items.Count == 0)
+        {
+            <p class="col-span-full text-center text-gray-500 py-10">
+
+                No items found in the inventory. Use "Menu Options" to add a new item.
+            </p>
+        }
+        else
+        {
+            index = 0;
+            @foreach (var item in Model.Items)
+            {
+                // Logic to display Base64 image data if present
+                string base64Image = null;
+                bool hasImage = item.LogoData != null && item.LogoContentType != null;
+                if (hasImage)
+                {
+                    base64Image = $"data:{item.LogoContentType};base64,{Convert.ToBase64String(item.LogoData!)}";
+                }
+
+                // Select icon and color based on modulo of the list index
+                var iconData = iconDataList[index % iconCount];
+                <div class="item-card bg-gray-50 p-3 rounded-lg border border-gray-100 hover:shadow-lg transition duration-150 ease-in-out cursor-pointer relative"
+                     data-item-id="@item.Id"
+                     data-item-name="@item.Name"
+                     data-item-qty="@item.Quantity"
+                     data-item-price="@item.Price"
+                     data-item-position="@item.Position" @* Add position data for debugging/future features *@
+                     onclick="handleItemClick(event, this)"
+                     oncontextmenu="handleContextMenu(event, this)">
+
+                    <div class="h-20 w-full @(hasImage ? "p-0" : iconData.BgColor) flex items-center justify-center rounded-md mb-2 overflow-hidden">
+                        @if (hasImage)
+
+                        {
+                            <img src="@base64Image"
+                                 alt="@item.Name logo"
+                                 class="w-full h-full object-cover" />
+                        }
+                        else
+                        {
+
+                            <svg class="w-10 h-10 @iconData.Color" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="@iconData.Path"></path>
+                            </svg>
+
+                        }
+                    </div>
+
+                    <p class="text-sm font-semibold text-gray-800 truncate">@item.Name</p>
+
+                    <p class="text-xs text-gray-400">Pos: @item.Position</p>
+
+
+                    <p class="text-xs text-gray-500">In Stock: <span class="font-medium text-gray-700">@item.Quantity</span></p>
+                    <p class="text-sm font-bold @(item.Quantity == 0 ? "text-red-600" : "text-green-600") mt-1">$@item.Price.ToString("N2")</p>
+
+                    @* Multi-select checkbox visual (initially hidden) *@
+                    <div class="multi-select-overlay hidden absolute inset-0 bg-indigo-500 bg-opacity-10 border-4 border-transparent rounded-lg flex items-start justify-end p-2 pointer-events-none">
+                        <svg class="w-6 h-6 text-indigo-600 opacity-0 transition-opacity" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                index++;
+            }
+        }
+
+    </div>
+</div>
+
+@* Context Menu Modal (Hidden, positioned by JS) *@
+<div id="contextMenu" class="hidden absolute w-48 rounded-md shadow-xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50">
+    <div class="py-1">
+        <button id="updateItemBtn" onclick="prepareEditDeleteModal('edit')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-9-4l6 6m0 0l2.5-2.5m-2.5 2.5l-6-6"></path></svg>
+            <span>Update Item</span>
+        </button>
+        <button onclick="prepareEditDeleteModal('delete')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            <span>Delete Item</span>
+        </button>
+        <button onclick="enterMultiSelectAndSelectCurrent()"
+                class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
+            <span>Select More...</span>
+        </button>
+    </div>
+</div>
+
+@* Create Modal *@
+<div id="createItemModal"
+     class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
+
+    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Add New Inventory Item</h3>
+        <form method="post" asp-page-handler="Add" enctype="multipart/form-data">
+            <div class="space-y-4">
+                <div>
+                    <label for="new_name" class="block text-sm font-medium text-gray-700">Product Name</label>
+                    <input type="text" asp-for="NewItem.Name" id="new_name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., T-Shirt Black XL" required>
+                </div>
+                <div>
+                    <label for="new_qty" class="block text-sm
+font-medium
+text-gray-700">Quantity</label>
+                    <input type="number" asp-for="NewItem.Quantity" id="new_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 50" min="0" required>
+                </div>
+                <div>
+                    <label for="new_price" class="block text-sm font-medium text-gray-700">Price ($)</label>
+                    <input type="number" asp-for="NewItem.Price" id="new_price" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 29.99" step="0.01" min="0.01" required>
+                </div>
+                <div>
+                    <label for="LogoFile" class="block text-sm font-medium text-gray-700">Product Logo (Optional File)</label>
+                    <input type="file" asp-for="LogoFile" id="LogoFile" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" accept="image/*">
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="closeCreateModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg shadow-md hover:bg-green-700">Add Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Edit/Delete Modal *@
+<div id="editItemModal"
+     class="hidden fixed inset-0 bg-gray-900 bg-opacity-75
+        z-30 flex items-center justify-center">
+
+    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
+        <h3 id="editModalTitle" class="text-xl font-bold text-gray-800 mb-4"></h3>
+
+        <form method="post" asp-page-handler="Edit" id="updateForm" class="space-y-4" enctype="multipart/form-data">
+            <input type="hidden" asp-for="EditItem.Id" id="edit_id" value="" />
+            <div>
+                <label for="edit_name" class="block text-sm font-medium text-gray-700">Product Name</label>
+                <input type="text" asp-for="EditItem.Name" id="edit_name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+            </div>
+            <div>
+                <label for="edit_qty" class="block text-sm font-medium text-gray-700">Quantity</label>
+                <input type="number" asp-for="EditItem.Quantity" id="edit_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" min="0" required>
+            </div>
+            <div>
+                <label for="edit_price" class="block text-sm font-medium text-gray-700">Price ($)</label>
+                <input type="number" asp-for="EditItem.Price" id="edit_price" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0.01" required>
+            </div>
+            <div>
+                <label for="LogoFile_edit" class="block text-sm font-medium text-gray-700">Product Logo (Optional New File)</label>
+                <input type="file" asp-for="LogoFile" id="LogoFile_edit" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" accept="image/*">
+                <p class="mt-1 text-xs text-gray-500">Leave blank to keep the existing image.</p>
+            </div>
+            <div class="pt-2 flex justify-end space-x-3">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-medium text-gray-700
+bg-gray-200 rounded-lg
+hover:bg-gray-300">
+                    Cancel
+                </button>
+                <button type="submit" id="updateActionButton" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700">Update Item</button>
+            </div>
+        </form>
+
+        <form method="post" asp-page-handler="Delete" id="deleteForm" class="hidden">
+
+            <p class="text-md text-red-700 mb-4">Are you sure you want to permanently delete this item?</p>
+            <input type="hidden"
+                   name="DeleteId" id="delete_id" value="" />
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg shadow-md hover:bg-red-700">Yes, Delete Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+@* TUTORIAL Modal *@
+<div id="tutorialModal"
+     class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
+
+    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+        <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <svg class="w-6 h-6 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Quick Tutorial: Inventory Dashboard
+        </h3>
+
+        <div class="space-y-4 text-gray-700">
+            <h4 class="font-semibold text-lg text-indigo-600 border-b pb-1">1. Item Management</h4>
+            <ul class="list-disc list-inside space-y-2 ml-4 text-sm">
+                <li>Use the **"Menu Options"** button at the top right to **"Create New Item."**</li>
+                <li>**Right-click** on any item card to open the **Context Menu**.</li>
+                <li>From the Context Menu, you can **Update** (Edit) or **Delete** an individual item.</li>
+            </ul>
+
+            <h4 class="font-semibold text-lg text-indigo-600 border-b pb-1">2. Ordering & Swapping</h4>
+            <ul class="list-disc list-inside space-y-2 ml-4 text-sm">
+                <li>Items are sorted by their **Position** value (shown as **Pos: X** on the card).</li>
+                <li>Go to **"Menu Options"** and click **"Select More Items"** (or use the Context Menu's **"Select More..."**).</li>
+                <li>In **Multi-Select Mode**, check exactly **two** items. The **"Switch 2 Items"** button will enable, letting you swap their **Position** values.</li>
+                <li>**Fixing Order:** If positions get messed up, go to **"Menu Options"** and use the **"Re-Index Positions (Fix)"** button to reset all positions to a clean, sequential order starting from 1.</li>
+            </ul>
+
+            <h4 class="font-semibold text-lg text-indigo-600 border-b pb-1">3. Mass Actions</h4>
+            <ul class="list-disc list-inside space-y-2 ml-4 text-sm">
+                <li>Enter **Multi-Select Mode** as described above.</li>
+                <li>Select one or more items.</li>
+                <li>Use the **"Mass Delete"** button to remove all selected items at once.</li>
+            </ul>
+        </div>
+
+        <div class="mt-6 flex justify-end space-x-3">
+            <button type="button" onclick="closeTutorialModal()" class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg shadow-md hover:bg-purple-700">Got It!</button>
+        </div>
+    </div>
+</div>
+@* END TUTORIAL Modal *@
+
+@section Scripts {
+
+    <script>
+
+        // State
+        // Variables
+        let contextMenuTargetId = null;
+        let contextMenuTargetElement = null;
+        const contextMenu = document.getElementById('contextMenu');
+        const menuModal = document.getElementById('menuOptionsModal');
+        const createModal = document.getElementById('createItemModal');
+        const editModal = document.getElementById('editItemModal');
+        const tutorialModal = document.getElementById('tutorialModal');
+        const tutorialBtn = document.getElementById('tutorialBtn');
+        const updateForm = document.getElementById('updateForm');
+        const deleteForm = document.getElementById('deleteForm');
+        // Multi-Select State (Preserved)
+        let isMultiSelectMode = false;
+        const selectedMultiIds = [];
+        const multiSelectBar = document.getElementById('multiSelectBar');
+        const allItemCards = document.querySelectorAll('.item-card');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const deleteCountSpan = document.getElementById('deleteCount');
+        const multiSwitchBtn = document.getElementById('multiSwitchBtn');
+        const massDeleteBtn = document.getElementById('massDeleteBtn');
+        const swapItem1Input = document.getElementById('swap_item1');
+        const swapItem2Input = document.getElementById('swap_item2');
+        const massDeleteItemsInput = document.getElementById('mass_delete_items');
+        const selectMoreToggle = document.getElementById('selectMoreToggle');
+        // --- Modal Functions ---
+        function openCreateModal() {
+            menuModal.classList.add('hidden');
+            createModal.classList.remove('hidden');
+        }
+        function closeCreateModal() {
+            createModal.classList.add('hidden');
+        }
+        function closeEditModal() {
+            editModal.classList.add('hidden');
+        }
+        // --- NEW TUTORIAL FUNCTIONS ---
+        function showTutorial() {
+            menuModal.classList.add('hidden');
+            tutorialModal.classList.remove('hidden');
+        }
+        function closeTutorialModal() {
+            tutorialModal.classList.add('hidden');
+        }
+        // --- END NEW TUTORIAL FUNCTIONS ---
+
+        function hideContextMenu() {
+            contextMenu.classList.add('hidden');
+            // NOTE: DO NOT clear contextMenuTargetElement/Id here,
+            // as prepareEditDeleteModal/enterMultiSelectAndSelectCurrent need them.
+        }
+        function clearContextMenuTargets() {
+            contextMenuTargetId = null;
+            contextMenuTargetElement = null;
+        }
+
+        // --- CRUCIAL UPDATE/DELETE MODAL PREPARATION FUNCTION ---
+        function prepareEditDeleteModal(action) {
+            // 1. **CHECK STATE FIRST**
+            if (!contextMenuTargetId || !contextMenuTargetElement) {
+                console.error("Error: No item context target set. Ensure you right-clicked the item first.");
+                return;
+            }
+
+            // 2. **EXTRACT DATA**
+            const id = contextMenuTargetElement.getAttribute('data-item-id');
+            const name = contextMenuTargetElement.getAttribute('data-item-name');
+            const qty = contextMenuTargetElement.getAttribute('data-item-qty');
+            const price = contextMenuTargetElement.getAttribute('data-item-price');
+            // 3. **HIDE MENU**
+            hideContextMenu();
+            if (action === 'edit') {
+                document.getElementById('editModalTitle').textContent = `Update Item: ${name}`;
+                updateForm.classList.remove('hidden');
+                deleteForm.classList.add('hidden');
+
+                document.getElementById('edit_id').value = id;
+                document.getElementById('edit_name').value = name;
+                document.getElementById('edit_qty').value = qty;
+                document.getElementById('edit_price').value = price;
+                // Clear the file input for image update on open
+                document.getElementById('LogoFile_edit').value = '';
+            } else if (action === 'delete') {
+                document.getElementById('editModalTitle').textContent = `Confirm Deletion for: ${name}`;
+                updateForm.classList.add('hidden');
+                deleteForm.classList.remove('hidden');
+
+                document.getElementById('delete_id').value = id;
+            }
+
+            // 4. **SHOW MODAL & CLEAR STATE**
+            editModal.classList.remove('hidden');
+            clearContextMenuTargets();
+        }
+
+        // --- Event Handlers ---
+
+        // Handles the right-click/contextmenu event on a card
+        // (JS) 'event' is deprecated warning here is non-critical.
+        function handleContextMenu(e, element) {
+            e.preventDefault();
+            if (isMultiSelectMode) return;
+
+            hideContextMenu();
+            menuModal.classList.add('hidden');
+
+            contextMenuTargetId = element.getAttribute('data-item-id');
+            contextMenuTargetElement = element;
+            // Positioning logic (unchanged)
+            let x = e.clientX;
+            let y = e.clientY;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const menuWidth = contextMenu.offsetWidth;
+            const menuHeight = contextMenu.offsetHeight;
+            if (x + menuWidth > viewportWidth) {
+                x = viewportWidth - menuWidth - 5;
+            }
+            if (y + menuHeight > viewportHeight) {
+                y = viewportHeight - menuHeight - 5;
+            }
+
+            contextMenu.style.left = `${x}px`;
+            contextMenu.style.top = `${y}px`;
+            contextMenu.classList.remove('hidden');
+        }
+
+        // Handles the left-click event on a card
+        // (JS) 'event' is deprecated warning here is non-critical.
+        function handleItemClick(e, element) {
+            if (!contextMenu.classList.contains('hidden')) {
+                hideContextMenu();
+                return;
+            }
+            if (isMultiSelectMode) {
+                toggleMultiSelect(element.getAttribute('data-item-id'), element);
+            }
+        }
+
+
+        // --- Multi-Select Mode Management ---
+        selectMoreToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            menuModal.classList.add('hidden');
+            enterMultiSelect();
+        });
+        function enterMultiSelect() {
+            isMultiSelectMode = true;
+            multiSelectBar.classList.remove('hidden');
+            selectMoreToggle.querySelector('span').textContent = 'Exit Select';
+            selectMoreToggle.classList.add('bg-red-50', 'text-red-700', 'hover:bg-red-100');
+            allItemCards.forEach(card => card.classList.add('multi-select-active'));
+            updateMultiSelectUI();
+        }
+
+        function exitMultiSelect() {
+            isMultiSelectMode = false;
+            multiSelectBar.classList.add('hidden');
+            selectMoreToggle.querySelector('span').textContent = 'Select More Items';
+            selectMoreToggle.classList.remove('bg-red-50', 'text-red-700', 'hover:bg-red-100');
+            selectedMultiIds.length = 0;
+            allItemCards.forEach(card => {
+                card.classList.remove('multi-selected', 'border-indigo-500', 'ring-2', 'shadow-xl');
+                card.classList.add('border-gray-100');
+                const overlay = card.querySelector('.multi-select-overlay');
+                if (overlay) {
+                    overlay.classList.add('hidden');
+                    overlay.querySelector('svg').classList.remove('opacity-100');
+                }
+            });
+            updateMultiSelectUI();
+        }
+
+        // FIX: Stabilized function to use the contextMenuTargetElement safely.
+        function enterMultiSelectAndSelectCurrent() {
+            // 1. Check if we have a valid target element from the context menu
+            if (contextMenuTargetId && contextMenuTargetElement) {
+
+                const targetElement = contextMenuTargetElement;
+                // Cache the reference
+                const targetId = contextMenuTargetId;
+                // 2. Hide the context menu and clear its state *after* caching
+                hideContextMenu();
+                clearContextMenuTargets();
+
+                // 3. Enter multi-select mode
+                enterMultiSelect();
+                // 4. Select the item if it's not already selected.
+                if (selectedMultiIds.indexOf(targetId) === -1) {
+                    toggleMultiSelect(targetId, targetElement);
+                }
+            }
+        }
+
+        // CRITICAL FIX: Robust null checking added here in the previous step
+        function toggleMultiSelect(id, element) {
+            const index = selectedMultiIds.indexOf(id);
+            const overlay = element.querySelector('.multi-select-overlay');
+
+            // 1. CRITICAL NULL CHECK: Ensure the overlay is present
+            if (!overlay) {
+                console.error("Error: Multi-select overlay element is null for card:", element);
+                return;
+            }
+
+            const checkmark = overlay.querySelector('svg');
+            // 2. CRITICAL NULL CHECK: Ensure the checkmark is present
+            if (!checkmark) {
+                console.error("Error: Checkmark SVG element is null for overlay:", overlay);
+                return;
+            }
+
+            if (index > -1) {
+                selectedMultiIds.splice(index, 1);
+                element.classList.remove('multi-selected', 'border-indigo-500', 'ring-2', 'shadow-xl');
+                element.classList.add('border-gray-100');
+                overlay.classList.add('hidden');
+                checkmark.classList.remove('opacity-100');
+
+            } else if (isMultiSelectMode) {
+                selectedMultiIds.push(id);
+                element.classList.add('multi-selected', 'border-indigo-500', 'ring-2', 'shadow-xl');
+                element.classList.remove('border-gray-100');
+                overlay.classList.remove('hidden');
+                checkmark.classList.add('opacity-100');
+            }
+
+            updateMultiSelectUI();
+        }
+
+        function updateMultiSelectUI() {
+            const count = selectedMultiIds.length;
+            selectedCountSpan.textContent = count;
+            deleteCountSpan.textContent = count;
+
+            const canSwitch = count === 2;
+            multiSwitchBtn.disabled = !canSwitch;
+            multiSwitchBtn.classList.toggle('opacity-50', !canSwitch);
+            // Toggle opacity class
+            if (canSwitch) {
+                swapItem1Input.value = selectedMultiIds[0];
+                swapItem2Input.value = selectedMultiIds[1];
+            } else {
+                swapItem1Input.value = "";
+                swapItem2Input.value = "";
+            }
+
+            const canDelete = count > 0;
+            massDeleteBtn.disabled = !canDelete;
+            massDeleteBtn.classList.toggle('opacity-50', !canDelete); // Toggle opacity class
+            if (canDelete) {
+                massDeleteItemsInput.value = selectedMultiIds.join(',');
+            } else {
+                massDeleteItemsInput.value = "";
+            }
+        }
+
+        // --- Global Listener for Menu Options ---
+        document.getElementById('openMenuBtn').addEventListener('click', () => {
+            menuModal.classList.toggle('hidden');
+        });
+        // Close the Menu Options and Context Menu modals when clicking outside
+        document.addEventListener('click', (e) => {
+            const openMenuBtn = document.getElementById('openMenuBtn');
+
+            // Fix 1: Check if the click target is the tutorial button or a child (SVG, span) of it
+            const isClickOnTutorialOpener = tutorialBtn.contains(e.target) || e.target === tutorialBtn;
+
+            // Fix 2: Check if the click target is the menu button OR any of its children (SVG, span)
+            const isClickOnMenuOpener = openMenuBtn.contains(e.target);
+
+            // Close the Menu Options modal if clicking outside AND NOT on the button/children
+            // This is the CRUCIAL FIX for the menu button issue.
+            if (!menuModal.classList.contains('hidden') && !menuModal.contains(e.target) && !isClickOnMenuOpener) {
+                menuModal.classList.add('hidden');
+            }
+
+            // Close the Context Menu modal if clicking outside
+            if (!contextMenu.classList.contains('hidden') && !contextMenu.contains(e.target)) {
+                hideContextMenu();
+                clearContextMenuTargets();
+            }
+
+            // Complete Tutorial Modal Fix (Prevents the modal from closing immediately after opening)
+            if (!tutorialModal.classList.contains('hidden') && !tutorialModal.contains(e.target) && !isClickOnTutorialOpener) {
+                closeTutorialModal();
+            }
+
+        });
+        // Prevent context menu from appearing if it's already shown and you right-click elsewhere
+        document.addEventListener('contextmenu', (e) => {
+            if (!contextMenu.classList.contains('hidden')) {
+                e.preventDefault();
+            }
+        });
+    </script>
+}

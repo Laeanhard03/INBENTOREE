@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Inventory System</title>
 
-    <!-- Load Inter Font (Google Font used for modern, clean typography) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
 
-    <!-- Load Tailwind CSS CDN for modern, utility-first styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -21,24 +19,61 @@
         }
 
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1; /* slate-300 */
+            background: #cbd5e1;
+            /* slate-300 */
             border-radius: 4px;
         }
 
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9; /* slate-100 */
+            background: #f1f5f9;
+            /* FIX: Corrected 7-digit hex code to 6 digits */
+            /* slate-100 */
         }
+
+        /* --- Toast Notification Styles (MODIFIED FOR CENTERING) --- */
+        #toast-notification {
+            position: fixed;
+            /* MODIFIED: Centering position */
+            top: 50%;
+            left: 50%;
+            z-index: 100;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            /* MODIFIED: Centering transform and new scale animation */
+            transform: translate(-50%, -50%) scale(0.9);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+            #toast-notification.show {
+                opacity: 1;
+                /* MODIFIED: Centering transform and new scale animation */
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            #toast-notification.success {
+                background-color: #10B981;
+                /* Tailwind green-600 */
+            }
+
+            #toast-notification.error {
+                background-color: #EF4444;
+                /* Tailwind red-600 */
+            }
     </style>
 
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <!-- Header / Navigation Bar -->
     <header class="bg-white shadow-md sticky top-0 z-10">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
             <a asp-page="/Index" class="text-xl font-bold text-gray-800 tracking-tight">
                 INVENTORY SYSTEM
             </a>
+
             <nav>
                 <a asp-page="/Index" class="text-sm font-medium text-gray-500 hover:text-gray-900 mx-2">Dashboard</a>
                 <a href="#" class="text-sm font-medium text-gray-500 hover:text-gray-900 mx-2">Reports</a>
@@ -46,22 +81,57 @@
         </div>
     </header>
 
-    <!-- Main Content Area: Where Index.cshtml will be injected -->
     <main role="main" class="flex-grow pt-8 pb-10">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
             @RenderBody()
         </div>
     </main>
 
-    <!-- Footer -->
     <footer class="bg-gray-100 border-t border-gray-200 py-4 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-500">
             &copy; @DateTime.Now.Year Inventory Management Solution | UI Prototype
         </div>
     </footer>
 
-    <!-- Render any section scripts defined in child pages -->
+    @if (TempData["success"] != null)
+    {
+        <div id="toast-notification" class="success">
+            @TempData["success"]
+        </div>
+    }
+    @if (TempData["error"] != null)
+    {
+        <div id="toast-notification" class="error">
+            @TempData["error"]
+
+        </div>
+    }
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"></script>
+
     @await RenderSectionAsync("Scripts", required: false)
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const toast = document.getElementById('toast-notification');
+            if (toast) {
+
+                // Show the toast
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 100);
+
+                // Hide the toast after 4 seconds
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 4000);
+            }
+        });
+    </script>
 
 </body>
 </html>

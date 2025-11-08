@@ -1,211 +1,442 @@
+﻿using BCrypt.Net;
+using MailKit.Net.Smtp; // ADDED: For MailKit
+using MailKit.Security; // ADDED: For MailKit
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using MongoDB.Driver;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options; // ADDED: For MailSettings
+using MimeKit; // ADDED: For MailKit
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Driver;
+using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
-namespace WebApplication11.Pages;
-
-public class IndexModel(IMongoDatabase db) : PageModel
+namespace WebApplication11.Pages
 {
-    private readonly IMongoDatabase _db = db;
-    private const string CollectionName = "Items";
-
-    public List<Item> Items { get; set; } = [];
-
-    // --- Bind Properties for Form Submission ---
-
-    [BindProperty] public Item NewItem { get; set; } = new();
-
-    [BindProperty] public IFormFile? LogoFile { get; set; }
-
-    [BindProperty] public Item EditItem { get; set; } = new();
-
-    [BindProperty] public string? DeleteId { get; set; }
-
-    // Used for the Multi-Select 'Switch' form
-    [BindProperty]
-    public string[]? ItemsToSwitch { get; set; }
-
-    // NEW: Used for the Multi-Select 'Mass Delete' form
-    [BindProperty]
-    public string? ItemsToDelete { get; set; }
-
-
-    // OnGet: Fetches all items, sorted by the new Position field.
-    public async Task OnGetAsync()
+    // --- NEW: MailSettings class defined here --- 
+    // This class maps to the "MailSettings" in appsettings.json
+    public class MailSettings
     {
-        // R (Read): Fetches all documents, now sorted by Position.
-        Items = await _db.GetCollection<Item>(CollectionName)
-                             .Find(_ => true)
-                             .SortBy(item => item.Position) // Sort by Position
-                             .ToListAsync();
+        public string SmtpServer { get; set; } = string.Empty;
+        public int SmtpPort { get; set; }
+        public string SenderName { get; set; } = string.Empty;
+        public string SenderEmail { get; set; } = string.Empty;
+        public string SmtpUser { get; set; } = string.Empty;
+        public string SmtpPass { get; set; } = string.Empty;
     }
 
-    // OnPostAddAsync: (No change)
-    public async Task<IActionResult> OnPostAddAsync()
+    /// <summary>
+    /// Data Model for a User in the "Users" collection.
+    /// </summary>
+    public class User
     {
-        // ... (Existing logic for Add)
-        if (LogoFile != null && LogoFile.Length > 0)
-        {
-            NewItem.LogoContentType = LogoFile.ContentType;
-            using var memoryStream = new MemoryStream();
-            await LogoFile.CopyToAsync(memoryStream);
-            NewItem.LogoData = memoryStream.ToArray();
-        }
-        else
-        {
-            NewItem.LogoContentType = null;
-            NewItem.LogoData = null;
-        }
+        [BsonId]
+        [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
+        public string? Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
 
-        // Assign Position: The new item gets the highest existing position + 1.
-        var highestPositionItem = await _db.GetCollection<Item>(CollectionName)
-                                             .Find(_ => true)
-                                             .SortByDescending(i => i.Position)
-                                             .Limit(1)
-                                             .FirstOrDefaultAsync();
-
-        NewItem.Position = (highestPositionItem?.Position ?? 0) + 1;
-
-        // Insert new item
-        await _db.GetCollection<Item>(CollectionName).InsertOneAsync(NewItem);
-        return RedirectToPage();
+        // --- NEW VERIFICATION FIELDS ---
+        public bool IsEmailVerified { get; set; } = false;
+        public string? EmailVerificationToken { get; set; }
+        public DateTime? EmailVerificationTokenExpires { get; set; }
     }
 
-    // OnPostEdit: (No change)
-    public async Task<IActionResult> OnPostEdit()
+    /// <summary>
+    /// Input Model for the Login form.
+    /// </summary>
+    public class LoginInputModel
     {
-        // ... (Existing logic for Edit)
-        if (string.IsNullOrEmpty(EditItem.Id)) return RedirectToPage();
-
-        var collection = _db.GetCollection<Item>(CollectionName);
-        var existingItem = await collection.Find(x => x.Id == EditItem.Id).FirstOrDefaultAsync();
-
-        if (existingItem == null) return NotFound();
-
-        // IMPORTANT: Preserve the existing Position value
-        EditItem.Position = existingItem.Position;
-
-        // Handle File Upload/Preservation
-        if (LogoFile != null && LogoFile.Length > 0)
-        {
-            EditItem.LogoContentType = LogoFile.ContentType;
-            using var memoryStream = new MemoryStream();
-            await LogoFile.CopyToAsync(memoryStream);
-            EditItem.LogoData = memoryStream.ToArray();
-        }
-        else
-        {
-            // Retain the existing image data and content type
-            EditItem.LogoContentType = existingItem.LogoContentType;
-            // FIX: Removed the null-forgiving operator '!' to resolve the warning
-            EditItem.LogoData = existingItem.LogoData;
-        }
-
-        await collection.ReplaceOneAsync(x => x.Id == EditItem.Id, EditItem);
-        return RedirectToPage();
+        [Required]
+        [Display(Name = "Username or Email")]
+        public string UsernameOrEmail { get; set; } = string.Empty;
+        [Required]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
     }
 
-    // OnPostSwapAsync: (No change in logic, still handles the two selected items)
-    public async Task<IActionResult> OnPostSwapAsync()
+    /// <summary>
+    /// Input Model for the Registration form.
+    /// </summary>
+    public class RegisterInputModel
     {
-        // 1. Validation: Ensure exactly two distinct IDs were received from the Razor form.
-        if (ItemsToSwitch == null || ItemsToSwitch.Length != 2 || string.IsNullOrEmpty(ItemsToSwitch[0]) || string.IsNullOrEmpty(ItemsToSwitch[1]) || ItemsToSwitch[0] == ItemsToSwitch[1])
+        [Required]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 3)]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
+        [Display(Name = "Email Address")]
+        public string Email { get; set; } = string.Empty;
+
+        [DataType(DataType.EmailAddress)]
+        [Display(Name = "Confirm Email")]
+        [Compare("Email", ErrorMessage = "The email and confirmation email do not match.")]
+        public string ConfirmEmail { get; set; } = string.Empty;
+
+        [Required]
+        [DataType(DataType.Password)]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
+        public string Password { get; set; } = string.Empty;
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Confirm Password")]
+        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    // --- NEW INPUT MODEL FOR VERIFICATION ---
+    public class VerifyCodeInputModel
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(6, MinimumLength = 6, ErrorMessage = "The code must be 6 digits.")]
+        [Display(Name = "Verification Code")]
+        public string Code { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// PageModel for the Index page (Login/Register/Verify).
+    /// </summary>
+    public class IndexModel : PageModel
+    {
+        private readonly IMongoDatabase _db;
+        private const string UserCollectionName = "Users";
+        private readonly ILogger<IndexModel> _logger;
+        private readonly MailSettings _mailSettings; // ADDED: For storing mail settings
+
+        // Constructor updated to receive database, logger, and NEW mail settings
+        public IndexModel(IMongoDatabase db, ILogger<IndexModel> logger, IOptions<MailSettings> mailSettings)
         {
-            return RedirectToPage();
+            _db = db;
+            _logger = logger;
+            _mailSettings = mailSettings.Value; // ADDED: Get settings from IOptions
         }
 
-        string id1 = ItemsToSwitch[0];
-        string id2 = ItemsToSwitch[1];
+        // These properties are NOT bound, which is correct for this page.
+        // The data will be passed directly to the handlers via [FromForm]
+        public LoginInputModel LoginInput { get; set; } = new();
+        public RegisterInputModel RegisterInput { get; set; } = new();
 
-        var collection = _db.GetCollection<Item>(CollectionName);
+        // --- THE FIX ---
+        // Removed [BindProperty] from here.
+        // This stops it from being validated on every POST, fixing the 400 error.
+        public VerifyCodeInputModel VerifyInput { get; set; } = new();
+        // --- END THE FIX ---
 
-        // 2. Fetch both items from the database
-        var itemsToSwap = await collection.Find(
-            Builders<Item>.Filter.In(i => i.Id, ItemsToSwitch))
-            .ToListAsync();
 
-        if (itemsToSwap.Count != 2)
+        public IActionResult OnGet()
         {
-            return RedirectToPage();
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                _logger.LogInformation("User {Username} already authenticated, redirecting to Dashboard.", User.Identity.Name);
+                return RedirectToPage("/Dash");
+            }
+            return Page();
         }
 
-        var item1 = itemsToSwap.First(i => i.Id == id1);
-        var item2 = itemsToSwap.First(i => i.Id == id2);
-
-        // 3. Perform the Swap: Swap only their Position values
-        // FIX: Use tuple syntax for cleaner swap (C# 7+)
-        (item1.Position, item2.Position) = (item2.Position, item1.Position);
-
-        // 4. Update both documents in the database using BulkWrite (efficient MongoDB update)
-        var updates = new List<WriteModel<Item>>
+        /// <summary>
+        /// Handles the Login form submission via AJAX.
+        /// </summary>
+        public async Task<JsonResult> OnPostLoginAsync([FromForm] LoginInputModel LoginInput)
         {
-            new UpdateOneModel<Item>(
-                Builders<Item>.Filter.Eq(i => i.Id, item1.Id),
-                Builders<Item>.Update.Set(i => i.Position, item1.Position)
-            ),
-            new UpdateOneModel<Item>(
-                Builders<Item>.Filter.Eq(i => i.Id, item2.Id),
-                Builders<Item>.Update.Set(i => i.Position, item2.Position)
-            )
-        };
+            if (!ModelState.IsValid)
+            {
+                Response.StatusCode = 400;
+                return new JsonResult(new { success = false, message = "Invalid data submitted." });
+            }
 
-        await collection.BulkWriteAsync(updates);
-        return RedirectToPage();
+            var collection = _db.GetCollection<User>(UserCollectionName);
+
+            var loginInput = LoginInput.UsernameOrEmail;
+            var user = await collection.Find(u => u.Username == loginInput || u.Email == loginInput).FirstOrDefaultAsync();
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(LoginInput.Password, user.PasswordHash))
+            {
+                _logger.LogWarning("Login failed for user {UsernameOrEmail}: Invalid credentials.", LoginInput.UsernameOrEmail);
+                Response.StatusCode = 401; // Unauthorized
+                return new JsonResult(new { success = false, message = "Invalid username/email or password." });
+            }
+
+            // --- NEW VERIFICATION CHECK ---
+            if (!user.IsEmailVerified)
+            {
+                _logger.LogWarning("Login failed for user {Username}: Email not verified.", user.Username);
+
+                // Re-send code if the old one is expired or missing
+                if (!user.EmailVerificationTokenExpires.HasValue || user.EmailVerificationTokenExpires.Value < DateTime.UtcNow)
+                {
+                    await SetAndSendVerificationCode(user);
+                }
+
+                Response.StatusCode = 401; // Unauthorized
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "Your account is not verified. A verification code has been sent to your email.",
+                    needsVerification = true, // Flag for the frontend
+                    email = user.Email
+                });
+            }
+            // --- END VERIFICATION CHECK ---
+
+
+            // --- User is valid AND verified, sign them in ---
+            _logger.LogInformation("User {Username} logged in successfully.", user.Username);
+            await SignInUser(user);
+
+            return new JsonResult(new { success = true, redirectUrl = Url.Page("/Dash") });
+        }
+
+        /// <summary>
+        /// Handles the Registration form submission via AJAX.
+        /// </summary>
+        public async Task<JsonResult> OnPostRegisterAsync([FromForm] RegisterInputModel RegisterInput)
+        {
+            // This is the model that will be validated.
+            // Because VerifyInput is no longer a [BindProperty],
+            // only the RegisterInput model's state will be checked.
+            if (!ModelState.IsValid)
+            {
+                var errorMsg = string.Join(" ", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage));
+
+                Response.StatusCode = 400; // Bad Request
+                return new JsonResult(new { success = false, message = $"Registration failed: {errorMsg}" });
+            }
+
+            _logger.LogInformation("Attempting to register new user: {Username}", RegisterInput.Username);
+
+            var collection = _db.GetCollection<User>(UserCollectionName);
+
+            var existingUser = await collection.Find(u => u.Username == RegisterInput.Username).FirstOrDefaultAsync();
+            if (existingUser != null)
+            {
+                Response.StatusCode = 409; // Conflict
+                _logger.LogWarning("Registration failed: Username {Username} already taken.", RegisterInput.Username);
+                return new JsonResult(new { success = false, message = "Registration failed. Username is already taken." });
+            }
+
+            var existingEmail = await collection.Find(u => u.Email == RegisterInput.Email).FirstOrDefaultAsync();
+            if (existingEmail != null)
+            {
+                Response.StatusCode = 409; // Conflict
+                _logger.LogWarning("Registration failed: Email {Email} already taken.", RegisterInput.Email);
+                return new JsonResult(new { success = false, message = "Registration failed. Email is already taken." });
+            }
+
+            try
+            {
+                var passwordHash = BCrypt.Net.BCrypt.HashPassword(RegisterInput.Password);
+
+                var newUser = new User
+                {
+                    Username = RegisterInput.Username,
+                    Email = RegisterInput.Email,
+                    PasswordHash = passwordHash,
+                    IsEmailVerified = false // Set verification to false
+                };
+
+                // --- MODIFIED: Don't log in. Save user, send code. ---
+                await collection.InsertOneAsync(newUser);
+                _logger.LogInformation("Successfully inserted new user {Username} to MongoDB.", newUser.Username);
+
+                await SetAndSendVerificationCode(newUser);
+
+                // Return a special success message telling the frontend to switch views
+                return new JsonResult(new
+                {
+                    success = true,
+                    needsVerification = true, // Flag for the frontend
+                    email = newUser.Email
+                });
+            }
+            catch (Exception ex)
+            {
+                // This will now catch errors from SendEmailAsync,
+                // such as "5.7.0 Authentication Required" if your credentials are bad
+                _logger.LogError(ex, "Database or Email error while registering user {Username}.", RegisterInput.Username);
+                Response.StatusCode = 500; // Internal Server Error
+
+                // Send a more detailed error to the client for debugging email issues
+                string errorDetail = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                return new JsonResult(new { success = false, message = $"An error occurred during registration: {errorDetail}" });
+            }
+        }
+
+        // --- NEW HANDLER: OnPostVerifyCodeAsync ---
+        /// <summary>
+        /// Handles the 6-digit code verification via AJAX.
+        /// </summary>
+        public async Task<JsonResult> OnPostVerifyCodeAsync([FromForm] VerifyCodeInputModel VerifyInput)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errorMsg = string.Join(" ", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage));
+
+                Response.StatusCode = 400;
+                return new JsonResult(new { success = false, message = $"Invalid data: {errorMsg}" });
+            }
+
+            var collection = _db.GetCollection<User>(UserCollectionName);
+            var user = await collection.Find(u => u.Email == VerifyInput.Email).FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                Response.StatusCode = 404;
+                return new JsonResult(new { success = false, message = "User not found." });
+            }
+
+            if (user.IsEmailVerified)
+            {
+                await SignInUser(user); // Log them in if they were just checking
+                return new JsonResult(new { success = true, redirectUrl = Url.Page("/Dash") }); // Already verified
+            }
+
+            if (user.EmailVerificationToken != VerifyInput.Code || !user.EmailVerificationTokenExpires.HasValue || user.EmailVerificationTokenExpires.Value < DateTime.UtcNow)
+            {
+                Response.StatusCode = 400;
+                return new JsonResult(new { success = false, message = "Invalid or expired verification code." });
+            }
+
+            // --- Success! Verify the user ---
+            var update = Builders<User>.Update
+                .Set(u => u.IsEmailVerified, true)
+                .Set(u => u.EmailVerificationToken, null) // Clear the token
+                .Set(u => u.EmailVerificationTokenExpires, null);
+
+            await collection.UpdateOneAsync(u => u.Id == user.Id, update);
+
+            _logger.LogInformation("User {Username} verified their email successfully.", user.Username);
+
+            // Automatically sign them in
+            await SignInUser(user);
+
+            return new JsonResult(new { success = true, redirectUrl = Url.Page("/Dash") });
+        }
+
+        // --- NEW HANDLER: OnPostResendCodeAsync ---
+        /// <summary>
+        /// Handles resending the verification code via AJAX.
+        /// </summary>
+        public async Task<JsonResult> OnPostResendCodeAsync([FromForm] string email)
+        {
+            if (string.IsNullOrEmpty(email))
+            {
+                Response.StatusCode = 400;
+                return new JsonResult(new { success = false, message = "Email is required." });
+            }
+
+            var collection = _db.GetCollection<User>(UserCollectionName);
+            var user = await collection.Find(u => u.Email == email).FirstOrDefaultAsync();
+
+            if (user == null || user.IsEmailVerified)
+            {
+                Response.StatusCode = 404;
+                return new JsonResult(new { success = false, message = "User not found or is already verified." });
+            }
+
+            try
+            {
+                await SetAndSendVerificationCode(user);
+                return new JsonResult(new { success = true, message = "A new verification code has been sent." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to resend code for {Email}", email);
+                Response.StatusCode = 500;
+                string errorDetail = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                return new JsonResult(new { success = false, message = $"Failed to send email: {errorDetail}" });
+            }
+        }
+
+
+        // --- NEW HELPER METHODS ---
+
+        /// <summary>
+        /// Generates, saves, and emails a new verification code for a user.
+        /// </summary>
+        private async Task SetAndSendVerificationCode(User user)
+        {
+            var collection = _db.GetCollection<User>(UserCollectionName);
+            var code = new Random().Next(100000, 999999).ToString(); // 6-digit code
+            var expiry = DateTime.UtcNow.AddMinutes(15);
+
+            // Update user in DB
+            var update = Builders<User>.Update
+                .Set(u => u.EmailVerificationToken, code)
+                .Set(u => u.EmailVerificationTokenExpires, expiry);
+            await collection.UpdateOneAsync(u => u.Id == user.Id, update);
+
+            // Send email
+            var subject = "Your Verification Code";
+            var message = $"<h1>Welcome to Inventory System!</h1>"
+                          + $"<p>Your verification code is: <strong>{code}</strong></p>"
+                          + $"<p>This code will expire in 15 minutes.</p>";
+
+            await SendEmailAsync(user.Email, subject, message);
+            _logger.LogInformation("Sent verification code to {Email}", user.Email);
+        }
+
+        /// <summary>
+        /// Signs in a user by creating an auth cookie.
+        /// </summary>
+        private async Task SignInUser(User user)
+        {
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name, user.Username),
+                new(ClaimTypes.NameIdentifier, user.Id!)
+            };
+
+            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true // Remember the user
+            };
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(claimsIdentity),
+                authProperties);
+        }
+
+        /// <summary>
+        /// NEW: Email sending logic using MailKit, contained within this file.
+        /// </summary>
+        private async Task SendEmailAsync(string toEmail, string subject, string htmlMessage)
+        {
+            var email = new MimeMessage
+            {
+                Sender = new MailboxAddress(_mailSettings.SenderName, _mailSettings.SenderEmail)
+            };
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = subject;
+
+            var builder = new BodyBuilder
+            {
+                HtmlBody = htmlMessage
+            };
+            email.Body = builder.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(_mailSettings.SmtpServer, _mailSettings.SmtpPort, SecureSocketOptions.StartTls);
+            await smtp.AuthenticateAsync(_mailSettings.SmtpUser, _mailSettings.SmtpPass);
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
     }
-
-    // NEW: OnPostMassDeleteAsync: Handles deletion of multiple items.
-    public async Task<IActionResult> OnPostMassDeleteAsync()
-    {
-        if (string.IsNullOrEmpty(ItemsToDelete)) return RedirectToPage();
-
-        // 1. Parse the comma-separated string of IDs into a list of strings
-        var idsToDelete = ItemsToDelete.Split(',', System.StringSplitOptions.RemoveEmptyEntries)
-                                     .Where(id => !string.IsNullOrWhiteSpace(id))
-                                     .ToList();
-
-        if (idsToDelete.Count == 0) return RedirectToPage();
-
-        // 2. Create a MongoDB filter to match all IDs in the list
-        var filter = Builders<Item>.Filter.In(i => i.Id, idsToDelete);
-
-        // 3. Execute the mass delete operation
-        await _db.GetCollection<Item>(CollectionName).DeleteManyAsync(filter);
-
-        return RedirectToPage();
-    }
-
-
-    // OnPostDelete: (No change in logic, still handles single delete from Edit/Delete modal)
-    public async Task<IActionResult> OnPostDelete()
-    {
-        if (string.IsNullOrEmpty(DeleteId)) return RedirectToPage();
-
-        await _db.GetCollection<Item>(CollectionName).DeleteOneAsync(x => x.Id == DeleteId);
-
-        return RedirectToPage();
-    }
-}
-
-// Data Model: Item (No change needed here)
-public class Item
-{
-    [BsonId]
-    [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
-    public string? Id { get; set; }
-
-    public string Name { get; set; } = string.Empty;
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
-
-    // Field to define the display order/position
-    public int Position { get; set; } = 0;
-
-    public byte[]? LogoData { get; set; }
-    public string? LogoContentType { get; set; }
 }
