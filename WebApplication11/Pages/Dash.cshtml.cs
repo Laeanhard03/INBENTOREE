@@ -7,26 +7,29 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using System.Linq;
-using Microsoft.AspNetCore.Authorization; // For [Authorize]
-using Microsoft.AspNetCore.Authentication; // For HttpContext.SignOutAsync
-using Microsoft.AspNetCore.Authentication.Cookies; // For CookieAuthenticationDefaults
-using Microsoft.Extensions.Logging; // For ILogger
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.Logging;
+
+// --- PDF Generation Imports ---
+using iText.Kernel.Pdf;
+using iText.Layout.Properties;
+using iText.Layout.Element;
+using Document = iText.Layout.Document; // Fixes 'Document' ambiguity
+using Table = iText.Layout.Element.Table; // Fixes 'Table' ambiguity
+using iText.IO.Font.Constants; // For StandardFonts
+using iText.Kernel.Font;       // For PdfFontFactory
+// -----------------------------
 
 namespace WebApplication11.Pages;
 
-[Authorize] // CRITICAL: This protects the page, only logged-in users can access it
-public class DashModel : PageModel
+[Authorize]
+public class DashModel(IMongoDatabase db, ILogger<DashModel> logger) : PageModel
 {
-    private readonly IMongoDatabase _db;
+    private readonly IMongoDatabase _db = db;
+    private readonly ILogger<DashModel> _logger = logger;
     private const string CollectionName = "Items";
-    private readonly ILogger<DashModel> _logger; // For logging
-
-    // Constructor to receive database and logger services
-    public DashModel(IMongoDatabase db, ILogger<DashModel> logger)
-    {
-        _db = db;
-        _logger = logger;
-    }
 
     // --- Page Data ---
     public List<Item> Items { get; set; } = [];
@@ -41,36 +44,77 @@ public class DashModel : PageModel
 
     // --- Page Handlers ---
 
-    /// <summary>
-    /// Runs when the page is loaded. Fetches all inventory items.
-    /// </summary>
     public async Task OnGetAsync()
     {
-        // Log that the user has successfully accessed their dashboard
         _logger.LogInformation("User {Username} successfully accessed the dashboard.", User.Identity?.Name ?? "Unknown");
 
-        // R (Read): Fetches all documents, sorted by Position.
         Items = await _db.GetCollection<Item>(CollectionName)
                              .Find(_ => true)
-                             .SortBy(item => item.Position) // Sort by Position
+                             .SortBy(item => item.Position)
                              .ToListAsync();
     }
 
     /// <summary>
-    /// Handles the user logging out.
+    /// Generates and downloads a PDF report of all inventory items.
     /// </summary>
+    public async Task<IActionResult> OnGetPdfReportAsync()
+    {
+        // 1. Fetch items 
+        var items = await _db.GetCollection<Item>(CollectionName)
+                             .Find(_ => true)
+                             .SortBy(i => i.Position)
+                             .ToListAsync();
+
+        using var stream = new MemoryStream();
+        using var writer = new PdfWriter(stream);
+        using var pdf = new PdfDocument(writer);
+        using var document = new Document(pdf);
+
+        // Create a Bold Font to use instead of .SetBold()
+        PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+
+        // 2. Add Header
+        document.Add(new Paragraph(new Text("Inventory Report").SetFont(boldFont).SetFontSize(20))
+            .SetTextAlignment(TextAlignment.CENTER));
+
+        document.Add(new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm}")
+            .SetTextAlignment(TextAlignment.CENTER)
+            .SetFontSize(10));
+
+        document.Add(new Paragraph("\n")); // Spacer
+
+        // 3. Create Table (3 columns: Name, Quantity, Price)
+        var table = new Table(new float[] { 4, 2, 2 }).UseAllAvailableWidth();
+
+        // Table Headers
+        table.AddHeaderCell(new Paragraph(new Text("Item Name").SetFont(boldFont)));
+        table.AddHeaderCell(new Paragraph(new Text("Quantity").SetFont(boldFont)).SetTextAlignment(TextAlignment.RIGHT));
+        table.AddHeaderCell(new Paragraph(new Text("Price").SetFont(boldFont)).SetTextAlignment(TextAlignment.RIGHT));
+
+        // Table Rows
+        foreach (var item in items)
+        {
+            table.AddCell(new Paragraph(item.Name));
+            table.AddCell(new Paragraph(item.Quantity.ToString()).SetTextAlignment(TextAlignment.RIGHT));
+            table.AddCell(new Paragraph(item.Price.ToString("C")).SetTextAlignment(TextAlignment.RIGHT));
+        }
+
+        document.Add(table);
+        document.Close();
+
+        // 4. Return the file
+        return File(stream.ToArray(), "application/pdf", $"InventoryReport_{DateTime.Now:yyyyMMdd}.pdf");
+    }
+
     public async Task<IActionResult> OnPostLogoutAsync()
     {
         _logger.LogInformation("User {Username} is logging out.", User.Identity?.Name ?? "Unknown");
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-        TempData["success"] = "You have been logged out."; // Notification for the login page
+        TempData["success"] = "You have been logged out.";
         return RedirectToPage("/Index");
     }
 
-    /// <summary>
-    /// Handles creating a new inventory item.
-    /// </summary>
     public async Task<IActionResult> OnPostAddAsync()
     {
         if (LogoFile != null && LogoFile.Length > 0)
@@ -86,7 +130,6 @@ public class DashModel : PageModel
             NewItem.LogoData = null;
         }
 
-        // Assign Position: The new item gets the highest existing position + 1.
         var highestPositionItem = await _db.GetCollection<Item>(CollectionName)
                                              .Find(_ => true)
                                              .SortByDescending(i => i.Position)
@@ -95,14 +138,10 @@ public class DashModel : PageModel
 
         NewItem.Position = (highestPositionItem?.Position ?? 0) + 1;
 
-        // Insert new item
         await _db.GetCollection<Item>(CollectionName).InsertOneAsync(NewItem);
         return RedirectToPage();
     }
 
-    /// <summary>
-    /// Handles editing an existing inventory item.
-    /// </summary>
     public async Task<IActionResult> OnPostEdit()
     {
         if (string.IsNullOrEmpty(EditItem.Id)) return RedirectToPage();
@@ -112,10 +151,8 @@ public class DashModel : PageModel
 
         if (existingItem == null) return NotFound();
 
-        // Preserve the existing Position value
         EditItem.Position = existingItem.Position;
 
-        // Handle File Upload/Preservation
         if (LogoFile != null && LogoFile.Length > 0)
         {
             EditItem.LogoContentType = LogoFile.ContentType;
@@ -125,7 +162,6 @@ public class DashModel : PageModel
         }
         else
         {
-            // Retain the existing image data and content type
             EditItem.LogoContentType = existingItem.LogoContentType;
             EditItem.LogoData = existingItem.LogoData;
         }
@@ -134,12 +170,8 @@ public class DashModel : PageModel
         return RedirectToPage();
     }
 
-    /// <summary>
-    /// Handles swapping the positions of two selected items.
-    /// </summary>
     public async Task<IActionResult> OnPostSwapAsync()
     {
-        // 1. Validation: Ensure exactly two distinct IDs were received.
         if (ItemsToSwitch == null || ItemsToSwitch.Length != 2 || string.IsNullOrEmpty(ItemsToSwitch[0]) || string.IsNullOrEmpty(ItemsToSwitch[1]) || ItemsToSwitch[0] == ItemsToSwitch[1])
         {
             return RedirectToPage();
@@ -150,7 +182,6 @@ public class DashModel : PageModel
 
         var collection = _db.GetCollection<Item>(CollectionName);
 
-        // 2. Fetch both items from the database
         var itemsToSwap = await collection.Find(
             Builders<Item>.Filter.In(i => i.Id, ItemsToSwitch))
             .ToListAsync();
@@ -163,10 +194,8 @@ public class DashModel : PageModel
         var item1 = itemsToSwap.First(i => i.Id == id1);
         var item2 = itemsToSwap.First(i => i.Id == id2);
 
-        // 3. Perform the Swap: Swap only their Position values
         (item1.Position, item2.Position) = (item2.Position, item1.Position);
 
-        // 4. Update both documents in the database using BulkWrite
         var updates = new List<WriteModel<Item>>
         {
             new UpdateOneModel<Item>(
@@ -183,14 +212,10 @@ public class DashModel : PageModel
         return RedirectToPage();
     }
 
-    /// <summary>
-    /// Fixes item ordering by re-assigning sequential position numbers to all items.
-    /// </summary>
     public async Task<IActionResult> OnPostReIndex()
     {
         var collection = _db.GetCollection<Item>(CollectionName);
 
-        // 1. Fetch all items, ordered by Position first, then Id for stability.
         var allItems = await collection.Find(_ => true)
             .SortBy(i => i.Position)
             .ThenBy(i => i.Id)
@@ -198,7 +223,6 @@ public class DashModel : PageModel
 
         var bulkWrites = new List<WriteModel<Item>>();
 
-        // 2. Assign a new, unique, sequential position starting from 1.
         int newPosition = 1;
         foreach (var item in allItems)
         {
@@ -212,7 +236,6 @@ public class DashModel : PageModel
             newPosition++;
         }
 
-        // 3. Execute bulk update only if changes are needed.
         if (bulkWrites.Count > 0)
         {
             await collection.BulkWriteAsync(bulkWrites);
@@ -221,34 +244,23 @@ public class DashModel : PageModel
         return RedirectToPage();
     }
 
-
-    /// <summary>
-    /// Handles deleting multiple selected items at once.
-    /// </summary>
     public async Task<IActionResult> OnPostMassDeleteAsync()
     {
         if (string.IsNullOrEmpty(ItemsToDelete)) return RedirectToPage();
 
-        // 1. Parse the comma-separated string of IDs
         var idsToDelete = ItemsToDelete!.Split(',', System.StringSplitOptions.RemoveEmptyEntries)
                                            .Where(id => !string.IsNullOrWhiteSpace(id))
                                            .ToList();
 
         if (idsToDelete.Count == 0) return RedirectToPage();
 
-        // 2. Create a MongoDB filter to match all IDs in the list
         var filter = Builders<Item>.Filter.In(i => i.Id, idsToDelete);
 
-        // 3. Execute the mass delete operation
         await _db.GetCollection<Item>(CollectionName).DeleteManyAsync(filter);
 
         return RedirectToPage();
     }
 
-
-    /// <summary>
-    /// Handles deleting a single item (from context menu).
-    /// </summary>
     public async Task<IActionResult> OnPostDelete()
     {
         if (string.IsNullOrEmpty(DeleteId)) return RedirectToPage();
@@ -259,9 +271,6 @@ public class DashModel : PageModel
     }
 }
 
-/// <summary>
-/// Data Model for an inventory item.
-/// </summary>
 public class Item
 {
     [BsonId]
@@ -271,11 +280,7 @@ public class Item
     public string Name { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public decimal Price { get; set; }
-
-    // Field to define the display order/position
     public int Position { get; set; } = 0;
-
-    // Fields for storing an optional uploaded image
     public byte[]? LogoData { get; set; }
     public string? LogoContentType { get; set; }
 }
