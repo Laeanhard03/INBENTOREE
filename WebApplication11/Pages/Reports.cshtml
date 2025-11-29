@@ -1,0 +1,211 @@
+﻿@page
+@model WebApplication11.Pages.ReportsModel
+@{
+    ViewData["Title"] = "Business Analytics";
+}
+
+<div class="space-y-8">
+
+    @* --- HEADER --- *@
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Business Insights</h1>
+            <p class="text-sm text-gray-500 mt-1">Real-time performance & AI-powered predictions.</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex gap-2">
+            <span class="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wide rounded-full">
+                Live Data
+            </span>
+            <span class="px-3 py-1 bg-purple-50 text-purple-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
+                AI Powered
+            </span>
+        </div>
+    </div>
+
+    @* --- KPI GRID --- *@
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        @* Card 1: Total Sales *@
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                <svg class="w-16 h-16 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Sales (All Time)</p>
+            <h2 class="text-3xl font-extrabold text-gray-900 mt-2">₱@Model.TotalRevenue.ToString("N2")</h2>
+            <p class="text-xs text-green-600 mt-1 font-medium">@Model.TotalOrders orders processed</p>
+        </div>
+
+        @* Card 2: AI Forecast *@
+        <div class="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+            <p class="text-xs font-bold text-indigo-200 uppercase tracking-wider flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                Sari's Prediction (7 Days)
+            </p>
+            <h2 class="text-3xl font-extrabold mt-2">₱@Model.ForecastedRevenue.ToString("N2")</h2>
+            <p class="text-xs text-indigo-100 mt-1 opacity-80">Estimated revenue based on trends</p>
+        </div>
+
+        @* Card 3: Slow Movers *@
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Slow Moving Stock</p>
+            <h2 class="text-3xl font-extrabold text-orange-500 mt-2">@Model.SlowMovingItems.Count</h2>
+            <p class="text-xs text-gray-500 mt-1">Items with >10 stock but 0 recent sales</p>
+        </div>
+
+        @* Card 4: Low Stock *@
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Restock Needed</p>
+            <h2 class="text-3xl font-extrabold text-red-600 mt-2">@Model.LowStockItems.Count</h2>
+            <p class="text-xs text-gray-500 mt-1">Items below 5 qty</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        @* --- CHART SECTION (2/3 Width) --- *@
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-gray-800">Sales Trend & Forecast</h3>
+                <div class="flex gap-4 text-xs font-medium">
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-indigo-500"></span> Actual</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-purple-400 border border-purple-200 border-dashed"></span> AI Forecast</span>
+                </div>
+            </div>
+            <div class="h-80 w-full">
+                <canvas id="salesForecastChart"></canvas>
+            </div>
+        </div>
+
+        @* --- AI STRATEGY BOARD (1/3 Width) --- *@
+        <div class="space-y-6">
+            @* Holiday / Event Prediction *@
+            <div class="bg-purple-50 p-6 rounded-2xl border border-purple-100">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-xl">📅</span>
+                    <h3 class="font-bold text-purple-900">Sari's Event Radar</h3>
+                </div>
+                <p class="text-sm text-purple-800 leading-relaxed">
+                    @Model.HolidayPrediction
+                </p>
+            </div>
+
+            @* Actionable Tips *@
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Action Plan
+                </h3>
+                <ul class="space-y-3">
+                    @foreach (var tip in Model.ActionableTips)
+                    {
+                        <li class="flex items-start gap-3 text-sm text-gray-600">
+                            <span class="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
+                            @tip
+                        </li>
+                    }
+                    @if (Model.ActionableTips.Count == 0)
+                    {
+                        <li class="text-xs text-gray-400 italic">No specific tips right now.</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    @* --- SLOW MOVERS TABLE --- *@
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-50 bg-gray-50 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">Slow Moving Items (Dead Stock)</h3>
+            <span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Consider discounting these</span>
+        </div>
+        <table class="w-full text-left text-sm text-gray-600">
+            <thead class="bg-gray-50 text-xs uppercase text-gray-400 font-medium">
+                <tr>
+                    <th class="px-6 py-3">Item Name</th>
+                    <th class="px-6 py-3">Category</th>
+                    <th class="px-6 py-3 text-center">Current Stock</th>
+                    <th class="px-6 py-3 text-right">Price</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                @if (Model.SlowMovingItems.Count == 0)
+                {
+                    <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Great job! No stagnant inventory detected.</td></tr>
+                }
+                else
+                {
+                    @foreach (var item in Model.SlowMovingItems)
+                    {
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4 font-medium text-gray-900">@item.Name</td>
+                            <td class="px-6 py-4">@item.Category</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs font-bold">@item.Quantity</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">₱@item.Price.ToString("N2")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const ctx = document.getElementById('salesForecastChart').getContext('2d');
+
+            // Data from Backend
+            const labels = @Html.Raw(Model.SalesChartLabels);
+            const actualData = @Html.Raw(Model.SalesChartData);
+            const forecastData = @Html.Raw(Model.ForecastChartData);
+
+            // Extend labels for forecast if needed (Simulated visually by appending)
+            // For this demo, we assume forecast maps 1:1 to next days or overlaps for visual comparison
+            // Ideally, we'd append 7 future dates to labels here.
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Actual Sales',
+                            data: actualData,
+                            borderColor: '#6366f1', // Indigo 500
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'AI Forecast',
+                            data: forecastData, // In a real app, offset this data to start where actual ends
+                            borderColor: '#a855f7', // Purple 500
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointStyle: 'star'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', align: 'end' },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f3f4f6' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        });
+    </script>
+}

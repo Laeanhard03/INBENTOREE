@@ -11,7 +11,7 @@
     }
     /* Style for the global message box */
     #globalMessage {
-        display: none; /* Hidden by default */
+        display: none;
     }
     /* NEW: Style for the resend button */
     #resendCodeBtn {
@@ -19,16 +19,16 @@
         border: none;
         padding: 0;
         font-size: 0.875rem; /* text-sm */
-        color: #4f46e5; /* indigo-600 */
+        color: #4f46e5;
         cursor: pointer;
     }
 
         #resendCodeBtn:hover {
-            color: #3730a3; /* indigo-800 */
+            color: #3730a3;
         }
 
         #resendCodeBtn:disabled {
-            color: #9ca3af; /* gray-400 */
+            color: #9ca3af;
             cursor: not-allowed;
         }
 </style>
@@ -36,13 +36,12 @@
 <div class="flex items-center justify-center min-h-screen bg-gray-100">
     <div class="w-full max-w-md">
 
-        <!-- RENAMED: from #globalError to #globalMessage -->
         <div id="globalMessage" class="border px-4 py-3 rounded-lg relative mb-4" role="alert">
             <strong class="font-bold" id="globalMessageTitle">Error:</strong>
             <span class="block sm:inline" id="globalMessageText">Something went wrong.</span>
         </div>
 
-        <!-- --- Form 1: Login --- -->
+        @* --- LOGIN FORM --- *@
         <form id="loginForm" method="post" asp-page-handler="Login" class="bg-white shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4">
             <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Inventory Login</h2>
 
@@ -52,12 +51,11 @@
                 <label asp-for="LoginInput.UsernameOrEmail" class="block text-gray-700 text-sm font-bold mb-2"></label>
                 <input asp-for="LoginInput.UsernameOrEmail" class="shadow-sm appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Username or Email" required />
             </div>
+
             <div class="mb-6">
                 <label asp-for="LoginInput.Password" class="block text-gray-700 text-sm font-bold mb-2"></label>
                 <div class="relative">
-                    <input asp-for="LoginInput.Password" type="password" class="shadow-sm appearance-none border rounded-lg
-w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
-                           placeholder="******************" required />
+                    <input asp-for="LoginInput.Password" type="password" class="shadow-sm appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10" placeholder="******************" required />
                     <button type="button" class="password-toggle absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600" aria-label="Show password">
                         <svg class="h-5 w-5 eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -75,6 +73,20 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                     Sign In
                 </button>
             </div>
+
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500">Or continue with</span>
+                </div>
+            </div>
+
+            <button type="button" id="googleLoginBtn" class="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="Google logo">
+                Google
+            </button>
             <p class="text-center text-gray-500 text-sm mt-6">
                 Don't have an account?
                 <a href="#" id="showRegister" class="font-bold text-indigo-600 hover:text-indigo-800">
@@ -83,11 +95,26 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
             </p>
         </form>
 
-        <!-- --- Form 2: Register --- -->
+        @* --- REGISTER FORM --- *@
         <form id="registerForm" method="post" asp-page-handler="Register" class="bg-white shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4">
             <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Create Account</h2>
 
             <div asp-validation-summary="ModelOnly" class="text-red-600 text-sm mb-4"></div>
+
+            @* --- NEW: Role Selection --- *@
+            <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <label class="block text-gray-700 text-sm font-bold mb-2">I want to...</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" asp-for="RegisterInput.Role" value="Seller" class="form-radio text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked />
+                        <span class="ml-2 text-sm text-gray-700 font-medium">Sell Items (Open Store)</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" asp-for="RegisterInput.Role" value="Customer" class="form-radio text-green-600 focus:ring-green-500 h-4 w-4" />
+                        <span class="ml-2 text-sm text-gray-700 font-medium">Buy Items (Customer)</span>
+                    </label>
+                </div>
+            </div>
 
             <div class="mb-4">
                 <label asp-for="RegisterInput.Username" class="block text-gray-700 text-sm font-bold mb-2"></label>
@@ -153,7 +180,7 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
             </p>
         </form>
 
-        <!-- --- NEW Form 3: Verification Code --- -->
+        @* --- VERIFY CODE FORM --- *@
         <form id="verifyCodeForm" method="post" asp-page-handler="VerifyCode" class="bg-white shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4">
             <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Check Your Email</h2>
 
@@ -162,7 +189,6 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                 <strong id="verificationEmailDisplay" class="text-gray-900">your-email@example.com</strong>.
             </p>
 
-            <!-- Hidden input to send the email -->
             <input type="hidden" asp-for="VerifyInput.Email" id="verify_email" />
 
             <div class="mb-4">
@@ -177,6 +203,13 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                 </button>
             </div>
 
+            <div class="mb-4">
+                <a href="https://mail.google.com/" target="_blank" class="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 font-semibold py-2 px-4 rounded-lg border border-blue-200 hover:bg-blue-100 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    Open Gmail
+                </a>
+            </div>
+
             <div class="flex justify-between items-center text-sm">
                 <button type="button" id="resendCodeBtn" class="font-bold">Resend Code</button>
                 <a href="#" id="showLoginFromVerify" class="font-bold text-indigo-600 hover:text-indigo-800">
@@ -184,8 +217,6 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                 </a>
             </div>
         </form>
-        <!-- --- END NEW Form --- -->
-
 
         <p class="text-center text-gray-500 text-xs">
             &copy;2025 Inventory Corp. All rights reserved.
@@ -197,7 +228,23 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
     <script>
+        // --- 2. FIREBASE CONFIG (YOURS) ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDj92rKECvmKOmevDWe0uYX_N8siky8fw",
+          authDomain: "capstone-3rd.firebaseapp.com",
+          projectId: "capstone-3rd",
+          storageBucket: "capstone-3rd.firebasestorage.app",
+          messagingSenderId: "158920983624",
+          appId: "1:158920983624:web:1bbea9c41cb481a322047d",
+          measurementId: "G-T9QBMSKGTV"
+        };
+        // Initialize
+        firebase.initializeApp(firebaseConfig);
         document.addEventListener('DOMContentLoaded', function() {
                 // --- Setup password toggles ---
                 setupPasswordToggles();
@@ -205,18 +252,21 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                 // --- Form Elements ---
                 const loginForm = document.getElementById('loginForm');
                 const registerForm = document.getElementById('registerForm');
-                const verifyCodeForm = document.getElementById('verifyCodeForm'); // NEW
+                const verifyCodeForm = document.getElementById('verifyCodeForm');
 
                 // --- Buttons ---
                 const loginSubmitBtn = document.getElementById('loginSubmitBtn');
                 const registerSubmitBtn = document.getElementById('registerSubmitBtn');
-                const verifySubmitBtn = document.getElementById('verifySubmitBtn'); // NEW
-                const resendCodeBtn = document.getElementById('resendCodeBtn'); // NEW
+                const verifySubmitBtn = document.getElementById('verifySubmitBtn');
+                const resendCodeBtn = document.getElementById('resendCodeBtn');
+
+                // --- NEW: GOOGLE BUTTON ---
+                const googleLoginBtn = document.getElementById('googleLoginBtn');
 
                 // --- Form Toggles ---
                 document.getElementById('showRegister').addEventListener('click', (e) => { e.preventDefault(); showForm('registerForm'); });
                 document.getElementById('showLogin').addEventListener('click', (e) => { e.preventDefault(); showForm('loginForm'); });
-                document.getElementById('showLoginFromVerify').addEventListener('click', (e) => { e.preventDefault(); showForm('loginForm'); }); // NEW
+                document.getElementById('showLoginFromVerify').addEventListener('click', (e) => { e.preventDefault(); showForm('loginForm'); });
 
                 // --- Global Message Box ---
                 const globalMessageDiv = document.getElementById('globalMessage');
@@ -224,24 +274,62 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                 const globalMessageText = document.getElementById('globalMessageText');
 
                 // --- Hidden Fields ---
-                const verifyEmailInput = document.getElementById('verify_email'); // NEW
-                const verificationEmailDisplay = document.getElementById('verificationEmailDisplay'); // NEW
+                const verifyEmailInput = document.getElementById('verify_email');
+                const verificationEmailDisplay = document.getElementById('verificationEmailDisplay');
 
                 const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
-                // --- NEW: Helper function to switch forms ---
+                // --- Helper function to switch forms ---
                 function showForm(formId) {
-                    // Hide all forms
                     loginForm.style.display = 'none';
                     registerForm.style.display = 'none';
                     verifyCodeForm.style.display = 'none';
-
-                    // Hide the global message
                     globalMessageDiv.style.display = 'none';
-
-                    // Show the requested form
                     document.getElementById(formId).style.display = 'block';
                 }
+
+                // --- NEW: FIREBASE LOGIN HANDLER ---
+                googleLoginBtn.addEventListener('click', function() {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+
+                    firebase.auth().signInWithPopup(provider)
+                        .then((result) => {
+                            const user = result.user;
+                            console.log("Firebase Success:", user.email);
+                            sendUserToBackend(user.email, user.displayName);
+                        }).catch((error) => {
+                            console.error("Firebase Error:", error);
+                            showMessage(error.message, 'error');
+                        });
+                });
+
+                async function sendUserToBackend(email, displayName) {
+                    const formData = new FormData();
+                    formData.append('email', email);
+                    formData.append('username', displayName || email);
+                    formData.append('__RequestVerificationToken', token);
+                    try {
+                        const response = await fetch('/Index?handler=FirebaseLogin', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (!response.ok) {
+                             const text = await response.text();
+                             console.error("Server Error:", text);
+                             throw new Error(`Server returned status: ${response.status}`);
+                        }
+                        const result = await response.json();
+                        if (result.success) {
+                            window.location.href = result.redirectUrl;
+                        } else {
+                            showMessage(result.message || 'Login failed.', 'error');
+                        }
+                    } catch (error) {
+                        console.error("Fetch Error:", error);
+                        showMessage('Could not connect to server. Check console.', 'error');
+                    }
+                }
+                // -----------------------------------
 
                 // 1. Handle Login Submission
                 loginForm.addEventListener('submit', async function(e) {
@@ -260,16 +348,12 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                         if (response.ok && result.success) {
                             window.location.href = result.redirectUrl;
                         } else {
-                            // --- MODIFIED: Check if verification is needed ---
-                            if (result.needsVerification) {
-                                // User needs to verify. Switch to verify form.
+                             if (result.needsVerification) {
                                 verifyEmailInput.value = result.email;
                                 verificationEmailDisplay.textContent = result.email;
                                 showForm('verifyCodeForm');
-                                // Show the server message (e.g., "Code was sent")
                                 showMessage(result.message || 'Verification required.', 'error');
                             } else {
-                                // Standard login error
                                 showMessage(result.message || 'An unknown error occurred.', 'error');
                             }
                             setLoading(loginSubmitBtn, 'Sign In', false);
@@ -295,20 +379,15 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                         const result = await response.json();
 
                         if (response.ok && result.success) {
-                            // --- MODIFIED: Check for verification ---
                             if (result.needsVerification) {
-                                // Success! Switch to verification form.
                                 verifyEmailInput.value = result.email;
                                 verificationEmailDisplay.textContent = result.email;
                                 showForm('verifyCodeForm');
-                                // Show a SUCCESS message
                                 showMessage('Registration successful! Please check your email for a verification code.', 'success');
                             } else {
-                                // (Shouldn't happen with new flow, but good practice)
                                 window.location.href = result.redirectUrl;
                             }
                         } else {
-                            // Registration failed
                             showMessage(result.message || 'An unknown error occurred.', 'error');
                             setLoading(registerSubmitBtn, 'Register', false);
                         }
@@ -318,7 +397,7 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                     }
                 });
 
-                // --- NEW: 3. Handle Code Verification Submission ---
+                // 3. Handle Code Verification Submission
                 verifyCodeForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
                     setLoading(verifySubmitBtn, 'Verifying...');
@@ -333,10 +412,8 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                         const result = await response.json();
 
                         if (response.ok && result.success) {
-                            // Success! Redirect to dashboard
                             window.location.href = result.redirectUrl;
                         } else {
-                            // Failed (e.g., wrong code)
                             showMessage(result.message || 'Verification failed.', 'error');
                             setLoading(verifySubmitBtn, 'Verify Account', false);
                         }
@@ -346,7 +423,7 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                     }
                 });
 
-                // --- NEW: 4. Handle Resend Code Click ---
+                // 4. Handle Resend Code Click
                 resendCodeBtn.addEventListener('click', async function(e) {
                     e.preventDefault();
                     setLoading(resendCodeBtn, 'Sending...');
@@ -358,19 +435,16 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                         return;
                     }
 
-                    // We must use FormData to send the email and the token
                     const formData = new FormData();
                     formData.append('email', emailToResend);
 
                     try {
                         const response = await fetch('/Index?handler=ResendCode', {
                             method: 'POST',
-                            body: formData, // Send email as form data
+                            body: formData,
                             headers: { 'X-Request-Verification-Token': token }
                         });
-
                         const result = await response.json();
-
                         if (response.ok && result.success) {
                             showMessage('A new code has been sent to your email.', 'success');
                         } else {
@@ -383,7 +457,6 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                     setLoading(resendCodeBtn, 'Resend Code', false);
                 });
 
-
                 // --- Helper Functions ---
 
                 function setLoading(button, text, disabled = true) {
@@ -391,13 +464,9 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                     button.textContent = text;
                 }
 
-                // MODIFIED: 'type' can be 'error' or 'success'
                 function showMessage(message, type = 'error') {
                     globalMessageText.textContent = message;
-
-                    // Reset classes
                     globalMessageDiv.classList.remove('bg-red-100', 'border-red-400', 'text-red-700', 'bg-green-100', 'border-green-400', 'text-green-700');
-
                     if (type === 'error') {
                         globalMessageTitle.textContent = 'Error:';
                         globalMessageDiv.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
@@ -405,19 +474,17 @@ w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-
                         globalMessageTitle.textContent = 'Success:';
                         globalMessageDiv.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
                     }
-
                     globalMessageDiv.style.display = 'block';
                 }
 
                 function setupPasswordToggles() {
                     document.querySelectorAll('.password-toggle').forEach(button => {
                         button.addEventListener('click', function () {
-                            // Find the input field right before this button
                             const input = this.previousElementSibling;
                             const eyeIcon = this.querySelector('.eye-icon');
                             const eyeSlashIcon = this.querySelector('.eye-slash-icon');
 
-                            if (input.type === 'password') {
+                             if (input.type === 'password') {
                                 input.type = 'text';
                                 eyeIcon.classList.add('hidden');
                                 eyeSlashIcon.classList.remove('hidden');

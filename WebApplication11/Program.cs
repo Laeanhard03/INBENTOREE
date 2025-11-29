@@ -1,45 +1,53 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using MongoDB.Driver;
-using WebApplication11.Pages; // ADDED: To find the MailSettings class
+using WebApplication11.Pages;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ------------------------------------
-// MongoDB Service Configuration
-// ------------------------------------
+// --- 1. MongoDB Service ---
+// Connection string from original source
 var client = new MongoClient("mongodb://localhost:27017");
 var db = client.GetDatabase("inventorydb");
-
 builder.Services.AddSingleton(db);
 
-// ------------------------------------
-// NEW: Email Service Configuration
-// ------------------------------------
-// Binds the "MailSettings" section from appsettings.json to the MailSettings class
-// We defined the MailSettings class inside Index.cshtml.cs
+// --- 2. Email Service ---
+// Configuration setup
 builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
 
-// ------------------------------------
-// Authentication Service Configuration
-// ------------------------------------
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/Index";
-        options.LogoutPath = "/Index";
-        options.AccessDeniedPath = "/AccessDenied";
-        options.ExpireTimeSpan = TimeSpan.FromDays(7);
-        options.SlidingExpiration = true;
-    });
+// --- 3. Authentication Services ---
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
+.AddCookie(options =>
+{
+    options.LoginPath = "/Index";
+    options.LogoutPath = "/Index";
+    options.AccessDeniedPath = "/AccessDenied";
+    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+    options.SlidingExpiration = true;
+})
+.AddGoogle(googleOptions =>
+{
+    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? "YOUR_CLIENT_ID";
+    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? "YOUR_CLIENT_SECRET";
+});
+
+// --- 4. Session Services (NEW: Required for Shopping Cart) ---
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(60);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
 builder.Services.AddRazorPages();
 
-// ------------------------------------
-// Application Build and Run
-// ------------------------------------
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -51,9 +59,11 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-// --- CRITICAL: Auth middleware must be in this order ---
-app.UseAuthentication(); // 1. Identifies who the user is
-app.UseAuthorization();  // 2. Checks if they are allowed to access a resource
+// --- Middleware Order is Critical ---
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseSession(); // <--- Enable Session for Cart
+// ------------------------------------
 
 app.MapRazorPages();
 app.Run();

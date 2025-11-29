@@ -3,16 +3,11 @@
 @using WebApplication11.Pages
 @using System
 @{
-    ViewData["Title"] = "Inventory Dashboard";
-    // Define a list of dynamic icons (SVG path data) and associated colors for the cards.
+    ViewData["Title"] = "Inventory Management";
     var iconDataList = new[] {
-        // Icon 1: T-Shirt/Clothing (Indigo)
         new { Color = "text-indigo-600", BgColor = "bg-indigo-100", Path = "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3.8 6h16.4M15 10a3 3 0 1 1-6 0" },
-        // Icon 2: Box/Package (Green)
         new { Color = "text-green-600", BgColor = "bg-green-100", Path = "M12 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6m-4 4h4a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8" },
-        // Icon 3: Device/Laptop (Blue)
         new { Color = "text-blue-600", BgColor = "bg-blue-100", Path = "M18 10h-2M2 14v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2M4 10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4z" },
-        // Icon 4: Price Tag/General Item (Yellow)
         new { Color = "text-yellow-600", BgColor = "bg-yellow-100", Path = "M6.5 1h11a.5.5 0 0 1 .5.5v11.5L12 18.5 6 13V1.5a.5.5 0 0 1 .5-.5z" }
     };
     var iconCount = iconDataList.Length;
@@ -21,191 +16,243 @@
 
 <div class="flex flex-col space-y-6">
 
+    @* --- TOP BAR --- *@
     <div class="flex justify-between items-center relative">
-        <h1 class="text-2xl font-semibold text-gray-900">Product Inventory (@Model.Items.Count Items)</h1>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">@Model.CurrentStore.StoreName</h1>
+            <p class="text-sm text-gray-500">Manage your stock, products, and store appearance.</p>
+        </div>
 
         <div class="flex items-center space-x-3">
 
-            @* --- NEW LOGOUT BUTTON --- *@
-            <form method="post" asp-page-handler="Logout" class="inline">
-                <button type="submit"
-                        class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg shadow-lg hover:bg-red-700 transition duration-150 ease-in-out flex items-center space-x-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    <span>Logout</span>
-                </button>
-            </form>
-            @* --- END LOGOUT BUTTON --- *@
-
-            <button id="openMenuBtn"
-                    class="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg shadow-lg hover:bg-gray-300 transition duration-150 ease-in-out flex items-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-                <span>Menu Options</span>
+            @* --- MESSAGES BUTTON --- *@
+            <button onclick="openInboxModal()" class="relative p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm transition border border-gray-200" title="Messages">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <span id="msgBadge" class="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full hidden border-2 border-white"></span>
             </button>
-        </div>
 
-
-        <div id="menuOptionsModal"
-             class="hidden absolute right-0 top-full mt-2 w-56 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-40">
-
-            <div class="py-1">
-                <button onclick="openCreateModal()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    <span>Create New Item</span>
+            @* --- NOTIFICATIONS BUTTON --- *@
+            <div class="relative">
+                <button onclick="toggleNotifications(event)" id="notifBtn" class="relative p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm transition border border-gray-200" title="Notifications">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    <span id="notifBadge" class="absolute top-0 right-0 h-3 w-3 bg-indigo-500 rounded-full hidden border-2 border-white"></span>
                 </button>
-                @* ADDED TUTORIAL BUTTON *@
-                <button id="tutorialBtn" onclick="showTutorial()"
-                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-                    <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span>How to Use (Tutorial)</span>
-                </button>
-                @* END TUTORIAL BUTTON *@
-                <button id="selectMoreToggle"
-                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
-                    <span>Select More Items</span>
-                </button>
-
-                @* Re-Index Button (Fix) *@
-                <form method="post" asp-page-handler="ReIndex" onsubmit="return confirm('WARNING: This will re-index ALL items sequentially starting from 1. Use this only if the order is broken. Continue?');">
-                    <button type="submit"
-                            class="w-full text-left px-4 py-2 text-sm text-yellow-700 bg-yellow-50 hover:bg-yellow-100 flex items-center space-x-3">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0l3-3m-3 3l3 3m12 6v-5h-.582m0 0a8.003 8.003 0 01-15.356-2m15.356 2l-3 3m3-3l-3-3"></path></svg>
-                        <span>Re-Index Positions (Fix)</span>
-                    </button>
-                </form>
+                @* Notification Dropdown *@
+                <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-hidden">
+                    <div class="px-4 py-2 bg-gray-50 border-b flex justify-between items-center">
+                        <span class="text-sm font-bold text-gray-700">Notifications</span>
+                        <button onclick="clearNotifications()" class="text-xs text-indigo-600 hover:text-indigo-800">Clear All</button>
+                    </div>
+                    <div id="notifList" class="max-h-64 overflow-y-auto p-0">
+                        <div class="p-4 text-center text-xs text-gray-400">No new notifications</div>
+                    </div>
+                </div>
             </div>
-            <div class="py-1">
 
-                <a href="mongodb://localhost:27017/?appName=MongoDB%20Compass&readPreference=primary&ssl=false"
-                   target="_blank"
-                   class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10m0 0h16M4 7h16M4 7l4 4m0 0l4-4m-4 4v6m4-6v6m-4 6h8m-4-6h-8M4 17l4-4m0 0l4 4m-4-4v6m4-6v6"></path>
-                    </svg>
-                    <span>Open MongoDB Compass</span>
-                </a>
+            @* --- SARI AI MENU --- *@
+            <div class="relative inline-block text-left">
+                <button onclick="toggleSariMenu(event)" id="sariMenuBtn" type="button" class="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 hover:scale-105 transition active:scale-95">
+                    <span class="hidden sm:inline font-medium">✨ Ask Sari</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="sariDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-40">
+                    <div class="py-1">
+                        <button onclick="askSari('summary')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">📋 Inventory Summary</button>
+                        <button onclick="askSari('restock')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">📉 Restock Suggestions</button>
+                        <button onclick="askSari('design')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">🎨 Store Design Tips</button>
+                        <button onclick="askSari('joke')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">😄 Tell me a Joke</button>
+                    </div>
+                </div>
+            </div>
+
+            @* --- ACTIONS --- *@
+            <div class="relative">
+                <button onclick="toggleMenuOptions(event)" id="openMenuBtn" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow hover:bg-indigo-700 transition duration-150 ease-in-out flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                    <span>Menu Options</span>
+                </button>
+
+                @* --- DROPDOWN MENU --- *@
+                <div id="menuOptionsModal" class="hidden absolute right-0 top-full mt-2 w-64 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-40">
+                    <div class="py-1">
+                        <button onclick="openCreateModal()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <span>Create New Item</span>
+                        </button>
+
+                        <button onclick="openStoreSettings()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                            <svg class="w-5 h-5 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                            <span>Store Settings</span>
+                        </button>
+
+                        <a href="/Shop?StoreId=@Model.CurrentStore.Id" target="_blank" class="w-full text-left px-4 py-3 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center space-x-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                            <span>View Public Storefront</span>
+                        </a>
+
+                        <button id="tutorialBtn" onclick="showTutorial()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>How to Use (Tutorial)</span>
+                        </button>
+
+                        <button id="selectMoreToggle" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3 border-t border-gray-100">
+                            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
+                            <span>Select More Items</span>
+                        </button>
+
+                        <form method="post" asp-page-handler="ReIndex" onsubmit="return confirm('Confirm re-indexing?');">
+                            <button type="submit" class="w-full text-left px-4 py-3 text-sm text-yellow-700 bg-yellow-50 hover:bg-yellow-100 flex items-center space-x-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0l3-3m-3 3l3 3m12 6v-5h-.582m0 0a8.003 8.003 0 01-15.356-2m15.356 2l-3 3m3-3l-3-3"></path></svg>
+                                <span>Re-Index Positions</span>
+                            </button>
+                        </form>
+
+                        @* --- DEV TOOLS --- *@
+                        <form method="post" asp-page-handler="SeedInventory" class="border-t border-gray-100 bg-gray-50" onsubmit="showSariThinking('Stocking the shelves with goodies...')">
+                            <button type="submit" class="w-full text-left px-4 py-3 text-xs font-bold text-gray-500 hover:bg-gray-200 flex items-center space-x-3 uppercase tracking-wider">
+                                <span>🎲 Dev: Populate Inventory</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
-
     </div>
 
-    <div id="multiSelectBar" class="hidden w-full bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm p-3 -mt-4 mb-4 z-10">
+    @* --- SARI THINKING BUBBLE --- *@
+    <div id="sariThinking" class="fixed bottom-10 right-10 z-50 hidden transition-all duration-500 transform translate-y-10 opacity-0">
+        <div class="bg-white border-2 border-indigo-600 rounded-tr-2xl rounded-tl-2xl rounded-bl-2xl p-4 shadow-2xl flex items-center gap-4 animate-bounce">
+            <div class="bg-indigo-100 p-2 rounded-full">
+                <span class="text-2xl">✨</span>
+            </div>
+            <div>
+                <p class="font-bold text-indigo-700 text-sm">Sari is thinking...</p>
+                <p class="text-xs text-gray-500" id="sariThinkingText">Processing your request...</p>
+            </div>
+        </div>
+    </div>
+
+    @* --- MULTI SELECT BAR --- *@
+    <div id="multiSelectBar" class="hidden w-full bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm p-3 -mt-4 mb-4 z-10 transition-all duration-300">
         <div class="flex justify-between items-center">
             <p class="text-sm font-medium text-indigo-700">
                 <span id="selectedCount">0</span> item(s) selected
             </p>
             <div class="flex items-center space-x-3">
-
-
                 <form method="post" asp-page-handler="Swap" id="multiSwitchForm">
                     <input type="hidden" name="ItemsToSwitch" id="swap_item1">
                     <input type="hidden" name="ItemsToSwitch" id="swap_item2">
-                    <button type="submit" id="multiSwitchBtn"
-                            class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2"
-                            disabled>
+                    <button type="button" onclick="triggerCustomConfirm('swap')" id="multiSwitchBtn" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2" disabled>
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-
                         <span>Switch 2 Items</span>
                     </button>
                 </form>
 
-                <form method="post" asp-page-handler="MassDelete" onsubmit="return confirm('Are you sure you want to delete all selected items?');"
-                      id="massDeleteForm">
+                <form method="post" asp-page-handler="MassDelete" id="massDeleteForm">
                     <input type="hidden" name="ItemsToDelete" id="mass_delete_items">
-                    <button type="submit" id="massDeleteBtn"
-                            class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2"
-                            disabled>
+                    <button type="button" onclick="triggerCustomConfirm('delete')" id="massDeleteBtn" class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2" disabled>
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        <span>Mass Delete (<span id="deleteCount">0</span>)</span>
-
+                        <span>Mass Delete <span id="deleteCount">(0)</span></span>
                     </button>
                 </form>
 
-                <button onclick="exitMultiSelect()" class="text-indigo-700 hover:text-indigo-900">
+                <button onclick="exitMultiSelect()" class="text-indigo-700 hover:text-indigo-900 ml-2">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-
                 </button>
             </div>
         </div>
     </div>
 
-
-    <div id="inventoryDisplay"
-         class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-inner max-h-[70vh] custom-scrollbar overflow-y-auto">
-
+    @* Inventory Display Grid *@
+    <div id="inventoryDisplay" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-inner max-h-[70vh] custom-scrollbar overflow-y-auto">
         @if (Model.Items.Count == 0)
         {
-            <p class="col-span-full text-center text-gray-500 py-10">
-
-                No items found in the inventory. Use "Menu Options" to add a new item.
-            </p>
+            <div class="col-span-full text-center py-10">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900">No items found</h3>
+                <p class="text-gray-500 mt-1">Use "Menu Options" to add your first item.</p>
+            </div>
         }
         else
         {
             index = 0;
             @foreach (var item in Model.Items)
             {
-                // Logic to display Base64 image data if present
                 string base64Image = null;
                 bool hasImage = item.LogoData != null && item.LogoContentType != null;
                 if (hasImage)
                 {
                     base64Image = $"data:{item.LogoContentType};base64,{Convert.ToBase64String(item.LogoData!)}";
                 }
-
-                // Select icon and color based on modulo of the list index
                 var iconData = iconDataList[index % iconCount];
                 <div class="item-card bg-gray-50 p-3 rounded-lg border border-gray-100 hover:shadow-lg transition duration-150 ease-in-out cursor-pointer relative"
-                     data-item-id="@item.Id"
-                     data-item-name="@item.Name"
-                     data-item-qty="@item.Quantity"
-                     data-item-price="@item.Price"
-                     data-item-position="@item.Position" @* Add position data for debugging/future features *@
-                     onclick="handleItemClick(event, this)"
-                     oncontextmenu="handleContextMenu(event, this)">
+                     data-item-id="@item.Id" data-item-name="@item.Name" data-item-qty="@item.Quantity" data-item-price="@item.Price" data-item-position="@item.Position"
+                     onclick="handleItemClick(event, this)" oncontextmenu="handleContextMenu(event, this)">
 
                     <div class="h-20 w-full @(hasImage ? "p-0" : iconData.BgColor) flex items-center justify-center rounded-md mb-2 overflow-hidden">
                         @if (hasImage)
-
                         {
-                            <img src="@base64Image"
-                                 alt="@item.Name logo"
-                                 class="w-full h-full object-cover" />
+                            <img src="@base64Image" alt="@item.Name logo" class="w-full h-full object-cover" />
                         }
                         else
                         {
-
                             <svg class="w-10 h-10 @iconData.Color" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path d="@iconData.Path"></path>
                             </svg>
-
                         }
                     </div>
 
                     <p class="text-sm font-semibold text-gray-800 truncate">@item.Name</p>
+                    <p class="text-xs text-gray-500 mb-1 truncate">@item.Category</p>
+                    <div class="flex justify-between items-end">
+                        <div class="text-xs text-gray-500">Stock: <span class="font-medium text-gray-700">@item.Quantity</span></div>
+                        <div class="text-sm font-bold @(item.Quantity == 0 ? "text-red-600" : "text-green-600")">$@item.Price.ToString("N2")</div>
+                    </div>
 
-                    <p class="text-xs text-gray-400">Pos: @item.Position</p>
-
-
-                    <p class="text-xs text-gray-500">In Stock: <span class="font-medium text-gray-700">@item.Quantity</span></p>
-                    <p class="text-sm font-bold @(item.Quantity == 0 ? "text-red-600" : "text-green-600") mt-1">$@item.Price.ToString("N2")</p>
-
-                    @* Multi-select checkbox visual (initially hidden) *@
                     <div class="multi-select-overlay hidden absolute inset-0 bg-indigo-500 bg-opacity-10 border-4 border-transparent rounded-lg flex items-start justify-end p-2 pointer-events-none">
                         <svg class="w-6 h-6 text-indigo-600 opacity-0 transition-opacity" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                         </svg>
                     </div>
                 </div>
-
                 index++;
             }
         }
-
     </div>
 </div>
 
-@* Context Menu Modal (Hidden, positioned by JS) *@
+@* --- INBOX MODAL --- *@
+<div id="inboxModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-50 flex items-center justify-center backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full h-[600px] flex flex-col overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">Messages</h3>
+            <button onclick="document.getElementById('inboxModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700">&times;</button>
+        </div>
+        <div id="msgContainer" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50"></div>
+        <div class="p-4 border-t bg-white">
+            <form id="replyForm" onsubmit="sendReply(event)" class="flex gap-2">
+                <input type="text" id="replyInput" placeholder="Type a reply..." class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">Send</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* --- CUSTOM CONFIRMATION MODAL --- *@
+<div id="customConfirmModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-50 flex items-center justify-center backdrop-blur-sm transition-opacity">
+    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full transform scale-100 transition-transform">
+        <h3 id="confirmTitle" class="text-xl font-bold text-gray-800 mb-2">Confirm Action</h3>
+        <p id="confirmMessage" class="text-gray-600 mb-6">Are you sure?</p>
+        <div class="flex justify-end gap-3">
+            <button onclick="closeCustomConfirm()" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancel</button>
+            <button id="confirmActionBtn" class="px-4 py-2 text-white rounded-lg font-medium shadow-md transition-colors">Yes, Proceed</button>
+        </div>
+    </div>
+</div>
+
+@* --- OTHER MODALS --- *@
 <div id="contextMenu" class="hidden absolute w-48 rounded-md shadow-xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50">
     <div class="py-1">
         <button id="updateItemBtn" onclick="prepareEditDeleteModal('edit')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
@@ -216,18 +263,43 @@
             <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             <span>Delete Item</span>
         </button>
-        <button onclick="enterMultiSelectAndSelectCurrent()"
-                class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+        <button onclick="enterMultiSelectAndSelectCurrent()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
             <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
             <span>Select More...</span>
         </button>
     </div>
 </div>
 
-@* Create Modal *@
-<div id="createItemModal"
-     class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
+<div id="storeSettingsModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center">
+    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-md w-full">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Customize Your Store</h3>
+        <form method="post" asp-page-handler="UpdateStore">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Store Name</label>
+                    <input type="text" asp-for="StoreSettings.StoreName" value="@Model.CurrentStore.StoreName" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Store Description</label>
+                    <textarea asp-for="StoreSettings.Description" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">@Model.CurrentStore.Description</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Theme Color</label>
+                    <div class="flex items-center gap-3 mt-1">
+                        <input type="color" asp-for="StoreSettings.ThemeColor" value="@Model.CurrentStore.ThemeColor" class="h-10 w-20 p-1 rounded border border-gray-300 cursor-pointer">
+                        <span class="text-xs text-gray-500">Pick a color that matches your brand.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="document.getElementById('storeSettingsModal').classList.add('hidden')" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg shadow-md hover:bg-indigo-700">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
 
+<div id="createItemModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Add New Inventory Item</h3>
         <form method="post" asp-page-handler="Add" enctype="multipart/form-data">
@@ -237,9 +309,18 @@
                     <input type="text" asp-for="NewItem.Name" id="new_name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., T-Shirt Black XL" required>
                 </div>
                 <div>
-                    <label for="new_qty" class="block text-sm
-font-medium
-text-gray-700">Quantity</label>
+                    <label for="new_category" class="block text-sm font-medium text-gray-700">Category</label>
+                    <div class="relative">
+                        <input type="text" asp-for="NewItem.Category" id="new_category" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., Snacks (AI will guess if empty)">
+                        <div id="aiCategoryBadge" class="absolute right-2 top-2 hidden">
+                            <span class="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold">
+                                ✨ Auto-filled
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label for="new_qty" class="block text-sm font-medium text-gray-700">Quantity</label>
                     <input type="number" asp-for="NewItem.Quantity" id="new_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 50" min="0" required>
                 </div>
                 <div>
@@ -251,7 +332,6 @@ text-gray-700">Quantity</label>
                     <input type="file" asp-for="LogoFile" id="LogoFile" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" accept="image/*">
                 </div>
             </div>
-
             <div class="mt-6 flex justify-end space-x-3">
                 <button type="button" onclick="closeCreateModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
                 <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg shadow-md hover:bg-green-700">Add Item</button>
@@ -260,19 +340,18 @@ text-gray-700">Quantity</label>
     </div>
 </div>
 
-@* Edit/Delete Modal *@
-<div id="editItemModal"
-     class="hidden fixed inset-0 bg-gray-900 bg-opacity-75
-        z-30 flex items-center justify-center">
-
+<div id="editItemModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
         <h3 id="editModalTitle" class="text-xl font-bold text-gray-800 mb-4"></h3>
-
         <form method="post" asp-page-handler="Edit" id="updateForm" class="space-y-4" enctype="multipart/form-data">
             <input type="hidden" asp-for="EditItem.Id" id="edit_id" value="" />
             <div>
                 <label for="edit_name" class="block text-sm font-medium text-gray-700">Product Name</label>
                 <input type="text" asp-for="EditItem.Name" id="edit_name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+            </div>
+            <div>
+                <label for="edit_category" class="block text-sm font-medium text-gray-700">Category</label>
+                <input type="text" asp-for="EditItem.Category" id="edit_category" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
             </div>
             <div>
                 <label for="edit_qty" class="block text-sm font-medium text-gray-700">Quantity</label>
@@ -288,20 +367,14 @@ text-gray-700">Quantity</label>
                 <p class="mt-1 text-xs text-gray-500">Leave blank to keep the existing image.</p>
             </div>
             <div class="pt-2 flex justify-end space-x-3">
-                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-medium text-gray-700
-bg-gray-200 rounded-lg
-hover:bg-gray-300">
-                    Cancel
-                </button>
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
                 <button type="submit" id="updateActionButton" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700">Update Item</button>
             </div>
         </form>
 
         <form method="post" asp-page-handler="Delete" id="deleteForm" class="hidden">
-
             <p class="text-md text-red-700 mb-4">Are you sure you want to permanently delete this item?</p>
-            <input type="hidden"
-                   name="DeleteId" id="delete_id" value="" />
+            <input type="hidden" name="DeleteId" id="delete_id" value="" />
             <div class="mt-6 flex justify-end space-x-3">
                 <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
                 <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg shadow-md hover:bg-red-700">Yes, Delete Item</button>
@@ -310,203 +383,263 @@ hover:bg-gray-300">
     </div>
 </div>
 
-
-@* TUTORIAL Modal *@
-<div id="tutorialModal"
-     class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
-
-    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
-        <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-6 h-6 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            Quick Tutorial: Inventory Dashboard
-        </h3>
-
-        <div class="space-y-4 text-gray-700">
-            <h4 class="font-semibold text-lg text-indigo-600 border-b pb-1">1. Item Management</h4>
-            <ul class="list-disc list-inside space-y-2 ml-4 text-sm">
-                <li>Use the **"Menu Options"** button at the top right to **"Create New Item."**</li>
-                <li>**Right-click** on any item card to open the **Context Menu**.</li>
-                <li>From the Context Menu, you can **Update** (Edit) or **Delete** an individual item.</li>
-            </ul>
-
-            <h4 class="font-semibold text-lg text-indigo-600 border-b pb-1">2. Ordering & Swapping</h4>
-            <ul class="list-disc list-inside space-y-2 ml-4 text-sm">
-                <li>Items are sorted by their **Position** value (shown as **Pos: X** on the card).</li>
-                <li>Go to **"Menu Options"** and click **"Select More Items"** (or use the Context Menu's **"Select More..."**).</li>
-                <li>In **Multi-Select Mode**, check exactly **two** items. The **"Switch 2 Items"** button will enable, letting you swap their **Position** values.</li>
-                <li>**Fixing Order:** If positions get messed up, go to **"Menu Options"** and use the **"Re-Index Positions (Fix)"** button to reset all positions to a clean, sequential order starting from 1.</li>
-            </ul>
-
-            <h4 class="font-semibold text-lg text-indigo-600 border-b pb-1">3. Mass Actions</h4>
-            <ul class="list-disc list-inside space-y-2 ml-4 text-sm">
-                <li>Enter **Multi-Select Mode** as described above.</li>
-                <li>Select one or more items.</li>
-                <li>Use the **"Mass Delete"** button to remove all selected items at once.</li>
-            </ul>
+<div id="aiModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[80vh]">
+        <div class="px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 flex justify-between items-center">
+            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <span class="text-2xl">✨</span> Sari Assistant
+            </h3>
+            <button onclick="document.getElementById('aiModal').classList.add('hidden')" class="text-white hover:text-gray-200 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
         </div>
-
-        <div class="mt-6 flex justify-end space-x-3">
-            <button type="button" onclick="closeTutorialModal()" class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg shadow-md hover:bg-purple-700">Got It!</button>
+        <div class="p-6 bg-gray-50 flex-1 overflow-y-auto custom-scrollbar">
+            <div id="aiLoading" class="flex items-center justify-center space-x-2 py-8 hidden">
+                <div class="w-3 h-3 bg-indigo-500 rounded-full animate-bounce"></div>
+                <div class="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                <div class="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+            </div>
+            <div id="aiResponse" class="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium"></div>
+        </div>
+        <div class="px-6 py-3 bg-gray-100 border-t border-gray-200 flex justify-end">
+            <button onclick="document.getElementById('aiModal').classList.add('hidden')" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm">Close</button>
         </div>
     </div>
 </div>
-@* END TUTORIAL Modal *@
 
 @section Scripts {
-
     <script>
-
-        // State
-        // Variables
         let contextMenuTargetId = null;
         let contextMenuTargetElement = null;
         const contextMenu = document.getElementById('contextMenu');
         const menuModal = document.getElementById('menuOptionsModal');
         const createModal = document.getElementById('createItemModal');
         const editModal = document.getElementById('editItemModal');
-        const tutorialModal = document.getElementById('tutorialModal');
-        const tutorialBtn = document.getElementById('tutorialBtn');
         const updateForm = document.getElementById('updateForm');
         const deleteForm = document.getElementById('deleteForm');
-        // Multi-Select State (Preserved)
         let isMultiSelectMode = false;
         const selectedMultiIds = [];
         const multiSelectBar = document.getElementById('multiSelectBar');
         const allItemCards = document.querySelectorAll('.item-card');
         const selectedCountSpan = document.getElementById('selectedCount');
-        const deleteCountSpan = document.getElementById('deleteCount');
+        const deleteCountSpan = document.getElementById('deleteCount'); // Ensure ID exists in HTML
         const multiSwitchBtn = document.getElementById('multiSwitchBtn');
         const massDeleteBtn = document.getElementById('massDeleteBtn');
         const swapItem1Input = document.getElementById('swap_item1');
         const swapItem2Input = document.getElementById('swap_item2');
         const massDeleteItemsInput = document.getElementById('mass_delete_items');
         const selectMoreToggle = document.getElementById('selectMoreToggle');
-        // --- Modal Functions ---
-        function openCreateModal() {
-            menuModal.classList.add('hidden');
-            createModal.classList.remove('hidden');
-        }
-        function closeCreateModal() {
-            createModal.classList.add('hidden');
-        }
-        function closeEditModal() {
-            editModal.classList.add('hidden');
-        }
-        // --- NEW TUTORIAL FUNCTIONS ---
-        function showTutorial() {
-            menuModal.classList.add('hidden');
-            tutorialModal.classList.remove('hidden');
-        }
-        function closeTutorialModal() {
-            tutorialModal.classList.add('hidden');
-        }
-        // --- END NEW TUTORIAL FUNCTIONS ---
+        const sariMenuBtn = document.getElementById('sariMenuBtn');
+        const sariDropdown = document.getElementById('sariDropdown');
+        const notifDropdown = document.getElementById('notifDropdown');
 
-        function hideContextMenu() {
-            contextMenu.classList.add('hidden');
-            // NOTE: DO NOT clear contextMenuTargetElement/Id here,
-            // as prepareEditDeleteModal/enterMultiSelectAndSelectCurrent need them.
-        }
-        function clearContextMenuTargets() {
-            contextMenuTargetId = null;
-            contextMenuTargetElement = null;
+        // --- TOGGLE HANDLERS ---
+        function toggleMenuOptions(event) { event.stopPropagation(); if(menuModal) menuModal.classList.toggle('hidden'); }
+        function toggleSariMenu(event) { event.stopPropagation(); if(sariDropdown) sariDropdown.classList.toggle('hidden'); }
+        function toggleNotifications(event) { event.stopPropagation(); if(notifDropdown) notifDropdown.classList.toggle('hidden'); }
+
+        // --- GLOBAL CLICK CLOSE ---
+        document.addEventListener('click', (e) => {
+             if (menuModal && !menuModal.classList.contains('hidden') && !menuModal.contains(e.target)) menuModal.classList.add('hidden');
+             if (sariDropdown && !sariDropdown.classList.contains('hidden') && !sariDropdown.contains(e.target)) sariDropdown.classList.add('hidden');
+             if (notifDropdown && !notifDropdown.classList.contains('hidden') && !document.getElementById('notifBtn').contains(e.target)) notifDropdown.classList.add('hidden');
+             if (contextMenu && !contextMenu.classList.contains('hidden') && !contextMenu.contains(e.target)) { hideContextMenu(); clearContextMenuTargets(); }
+        });
+
+        // --- NOTIFICATION POLLING ---
+        setInterval(async () => {
+            try {
+                const res = await fetch('/Dash?handler=FetchNotifications');
+                const data = await res.json();
+                const list = document.getElementById('notifList');
+                const badge = document.getElementById('notifBadge');
+
+                if(data.notifications && data.notifications.length > 0) {
+                    badge.classList.remove('hidden');
+                    let html = '';
+                    data.notifications.forEach(n => {
+                        let color = 'bg-gray-100';
+                        if(n.type === 'order') color = 'bg-green-50 border-green-200';
+                        else if(n.type === 'cart') color = 'bg-blue-50 border-blue-200';
+
+                        html += `<div class="p-3 border-b border-gray-100 text-sm ${color}">
+                                    <p class="text-gray-800">${n.message}</p>
+                                    <span class="text-xs text-gray-400 block mt-1">${new Date(n.timestamp).toLocaleTimeString()}</span>
+                                 </div>`;
+                    });
+                    list.innerHTML = html;
+                } else {
+                    badge.classList.add('hidden');
+                    list.innerHTML = '<div class="p-4 text-center text-xs text-gray-400">No new notifications</div>';
+                }
+            } catch(e) {}
+        }, 10000); // Check every 10s
+
+        async function clearNotifications() {
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            await fetch('/Dash?handler=ClearNotifications', { method: 'POST', headers: { 'RequestVerificationToken': token } });
+            document.getElementById('notifList').innerHTML = '<div class="p-4 text-center text-xs text-gray-400">No new notifications</div>';
+            document.getElementById('notifBadge').classList.add('hidden');
         }
 
-        // --- CRUCIAL UPDATE/DELETE MODAL PREPARATION FUNCTION ---
-        function prepareEditDeleteModal(action) {
-            // 1. **CHECK STATE FIRST**
-            if (!contextMenuTargetId || !contextMenuTargetElement) {
-                console.error("Error: No item context target set. Ensure you right-clicked the item first.");
-                return;
+        // --- MESSAGE POLLING ---
+        let lastGuestId = null;
+        setInterval(async () => {
+            try {
+                const res = await fetch('/Dash?handler=FetchMessages');
+                const data = await res.json();
+                if(data.messages && data.messages.length > 0) {
+                    const badge = document.getElementById('msgBadge');
+                    if(badge) badge.classList.remove('hidden');
+                    renderMessages(data.messages);
+                }
+            } catch(e) {}
+        }, 5000);
+
+        function openInboxModal() {
+            document.getElementById('inboxModal').classList.remove('hidden');
+            const badge = document.getElementById('msgBadge');
+            if(badge) badge.classList.add('hidden');
+        }
+
+        function renderMessages(msgs) {
+            const container = document.getElementById('msgContainer');
+            if(!container) return;
+            let html = '';
+            msgs.forEach(m => {
+                const align = m.sender === 'Seller' ? 'text-right' : 'text-left';
+                const bg = m.sender === 'Seller' ? 'bg-indigo-100' : 'bg-white';
+                html += `<div class="${align} mb-2"><span class="inline-block px-3 py-2 rounded-lg text-sm ${bg} shadow-sm max-w-xs break-words"><b>${m.sender}:</b> ${m.content}</span></div>`;
+                if(m.sender !== 'Seller') lastGuestId = m.guestId;
+            });
+            container.innerHTML = html || '<p class="text-center text-gray-400 mt-10">No messages yet.</p>';
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendReply(e) {
+            e.preventDefault();
+            const input = document.getElementById('replyInput');
+            if(!input.value || !lastGuestId) return;
+            const formData = new FormData();
+            formData.append('guestId', lastGuestId);
+            formData.append('content', input.value);
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            await fetch('/Dash?handler=ReplyMessage', { method: 'POST', body: formData, headers: { 'RequestVerificationToken': token } });
+            input.value = '';
+            const res = await fetch('/Dash?handler=FetchMessages');
+            const data = await res.json();
+            renderMessages(data.messages);
+        }
+
+        // --- EXISTING LOGIC ---
+        function triggerCustomConfirm(action) {
+            const modal = document.getElementById('customConfirmModal');
+            const title = document.getElementById('confirmTitle');
+            const msg = document.getElementById('confirmMessage');
+            const btn = document.getElementById('confirmActionBtn');
+            modal.classList.remove('hidden');
+            if(action === 'delete') {
+                title.textContent = 'Delete Items?';
+                msg.textContent = `Are you sure you want to permanently delete ${selectedMultiIds.length} item(s)?`;
+                btn.textContent = 'Yes, Delete';
+                btn.className = 'px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium shadow-md transition-colors';
+                btn.onclick = () => { closeCustomConfirm(); showSariThinking('Cleaning up inventory...'); document.getElementById('massDeleteForm').submit(); };
+            } else if (action === 'swap') {
+                title.textContent = 'Swap Positions?';
+                msg.textContent = 'Swap the grid positions of these 2 items?';
+                btn.textContent = 'Yes, Swap';
+                btn.className = 'px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium shadow-md transition-colors';
+                btn.onclick = () => { closeCustomConfirm(); showSariThinking('Rearranging shelves...'); document.getElementById('multiSwitchForm').submit(); };
             }
+        }
+        function closeCustomConfirm() { document.getElementById('customConfirmModal').classList.add('hidden'); }
 
-            // 2. **EXTRACT DATA**
+        function showSariThinking(message) {
+            const bubble = document.getElementById('sariThinking');
+            const text = document.getElementById('sariThinkingText');
+            if(bubble && text) { text.textContent = message || "Thinking..."; bubble.classList.remove('hidden'); setTimeout(() => { bubble.classList.remove('translate-y-10', 'opacity-0'); }, 10); }
+        }
+        function hideSariThinking() {
+            const bubble = document.getElementById('sariThinking');
+            if(bubble) { bubble.classList.add('translate-y-10', 'opacity-0'); setTimeout(() => { bubble.classList.add('hidden'); }, 500); }
+        }
+
+        const nameInput = document.getElementById('new_name');
+        const categoryInput = document.getElementById('new_category');
+        const aiBadge = document.getElementById('aiCategoryBadge');
+        if(nameInput && categoryInput) {
+            nameInput.addEventListener('blur', async function() {
+                const itemName = nameInput.value;
+                const currentCat = categoryInput.value;
+                if(itemName && !currentCat) {
+                    showSariThinking("Guessing category...");
+                    try {
+                        const response = await fetch(`/Dash?handler=AiInsight&mode=categorize&input=${encodeURIComponent(itemName)}`);
+                        const data = await response.json();
+                        if(data.message) { categoryInput.value = data.message; aiBadge.classList.remove('hidden'); setTimeout(() => aiBadge.classList.add('hidden'), 3000); }
+                    } catch (e) { } finally { hideSariThinking(); }
+                }
+            });
+        }
+
+        function openCreateModal() { menuModal.classList.add('hidden'); createModal.classList.remove('hidden'); }
+        function closeCreateModal() { createModal.classList.add('hidden'); }
+        function closeEditModal() { editModal.classList.add('hidden'); }
+        function showTutorial() { menuModal.classList.add('hidden'); document.getElementById('tutorialModal').classList.remove('hidden'); }
+        function closeTutorialModal() { document.getElementById('tutorialModal').classList.add('hidden'); }
+        function openStoreSettings() { menuModal.classList.add('hidden'); document.getElementById('storeSettingsModal').classList.remove('hidden'); }
+        function hideContextMenu() { contextMenu.classList.add('hidden'); }
+        function clearContextMenuTargets() { contextMenuTargetId = null; contextMenuTargetElement = null; }
+
+        function prepareEditDeleteModal(action) {
+            if (!contextMenuTargetId || !contextMenuTargetElement) return;
             const id = contextMenuTargetElement.getAttribute('data-item-id');
             const name = contextMenuTargetElement.getAttribute('data-item-name');
             const qty = contextMenuTargetElement.getAttribute('data-item-qty');
             const price = contextMenuTargetElement.getAttribute('data-item-price');
-            // 3. **HIDE MENU**
             hideContextMenu();
             if (action === 'edit') {
                 document.getElementById('editModalTitle').textContent = `Update Item: ${name}`;
-                updateForm.classList.remove('hidden');
-                deleteForm.classList.add('hidden');
-
+                updateForm.classList.remove('hidden'); deleteForm.classList.add('hidden');
                 document.getElementById('edit_id').value = id;
                 document.getElementById('edit_name').value = name;
                 document.getElementById('edit_qty').value = qty;
                 document.getElementById('edit_price').value = price;
-                // Clear the file input for image update on open
                 document.getElementById('LogoFile_edit').value = '';
             } else if (action === 'delete') {
                 document.getElementById('editModalTitle').textContent = `Confirm Deletion for: ${name}`;
-                updateForm.classList.add('hidden');
-                deleteForm.classList.remove('hidden');
-
+                updateForm.classList.add('hidden'); deleteForm.classList.remove('hidden');
                 document.getElementById('delete_id').value = id;
             }
-
-            // 4. **SHOW MODAL & CLEAR STATE**
             editModal.classList.remove('hidden');
             clearContextMenuTargets();
         }
 
-        // --- Event Handlers ---
-
-        // Handles the right-click/contextmenu event on a card
-        // (JS) 'event' is deprecated warning here is non-critical.
         function handleContextMenu(e, element) {
             e.preventDefault();
             if (isMultiSelectMode) return;
-
             hideContextMenu();
-            menuModal.classList.add('hidden');
-
+            if(menuModal) menuModal.classList.add('hidden');
             contextMenuTargetId = element.getAttribute('data-item-id');
             contextMenuTargetElement = element;
-            // Positioning logic (unchanged)
-            let x = e.clientX;
-            let y = e.clientY;
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const menuWidth = contextMenu.offsetWidth;
-            const menuHeight = contextMenu.offsetHeight;
-            if (x + menuWidth > viewportWidth) {
-                x = viewportWidth - menuWidth - 5;
-            }
-            if (y + menuHeight > viewportHeight) {
-                y = viewportHeight - menuHeight - 5;
-            }
-
-            contextMenu.style.left = `${x}px`;
-            contextMenu.style.top = `${y}px`;
+            let x = e.clientX; let y = e.clientY;
+            if (x + contextMenu.offsetWidth > window.innerWidth) x = window.innerWidth - contextMenu.offsetWidth - 5;
+            if (y + contextMenu.offsetHeight > window.innerHeight) y = window.innerHeight - contextMenu.offsetHeight - 5;
+            contextMenu.style.left = `${x}px`; contextMenu.style.top = `${y}px`;
             contextMenu.classList.remove('hidden');
         }
 
-        // Handles the left-click event on a card
-        // (JS) 'event' is deprecated warning here is non-critical.
         function handleItemClick(e, element) {
-            if (!contextMenu.classList.contains('hidden')) {
-                hideContextMenu();
-                return;
-            }
-            if (isMultiSelectMode) {
-                toggleMultiSelect(element.getAttribute('data-item-id'), element);
-            }
+            if (!contextMenu.classList.contains('hidden')) { hideContextMenu(); return; }
+            if (isMultiSelectMode) { toggleMultiSelect(element.getAttribute('data-item-id'), element); }
         }
 
+        if(selectMoreToggle) { selectMoreToggle.addEventListener('click', (e) => { e.preventDefault(); menuModal.classList.add('hidden'); enterMultiSelect(); }); }
 
-        // --- Multi-Select Mode Management ---
-        selectMoreToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            menuModal.classList.add('hidden');
-            enterMultiSelect();
-        });
         function enterMultiSelect() {
             isMultiSelectMode = true;
             multiSelectBar.classList.remove('hidden');
             selectMoreToggle.querySelector('span').textContent = 'Exit Select';
-            selectMoreToggle.classList.add('bg-red-50', 'text-red-700', 'hover:bg-red-100');
             allItemCards.forEach(card => card.classList.add('multi-select-active'));
             updateMultiSelectUI();
         }
@@ -515,141 +648,87 @@ hover:bg-gray-300">
             isMultiSelectMode = false;
             multiSelectBar.classList.add('hidden');
             selectMoreToggle.querySelector('span').textContent = 'Select More Items';
-            selectMoreToggle.classList.remove('bg-red-50', 'text-red-700', 'hover:bg-red-100');
             selectedMultiIds.length = 0;
             allItemCards.forEach(card => {
                 card.classList.remove('multi-selected', 'border-indigo-500', 'ring-2', 'shadow-xl');
                 card.classList.add('border-gray-100');
                 const overlay = card.querySelector('.multi-select-overlay');
-                if (overlay) {
-                    overlay.classList.add('hidden');
-                    overlay.querySelector('svg').classList.remove('opacity-100');
-                }
+                if (overlay) { overlay.classList.add('hidden'); overlay.querySelector('svg').classList.remove('opacity-100'); }
             });
             updateMultiSelectUI();
         }
 
-        // FIX: Stabilized function to use the contextMenuTargetElement safely.
         function enterMultiSelectAndSelectCurrent() {
-            // 1. Check if we have a valid target element from the context menu
             if (contextMenuTargetId && contextMenuTargetElement) {
-
-                const targetElement = contextMenuTargetElement;
-                // Cache the reference
                 const targetId = contextMenuTargetId;
-                // 2. Hide the context menu and clear its state *after* caching
-                hideContextMenu();
-                clearContextMenuTargets();
-
-                // 3. Enter multi-select mode
-                enterMultiSelect();
-                // 4. Select the item if it's not already selected.
-                if (selectedMultiIds.indexOf(targetId) === -1) {
-                    toggleMultiSelect(targetId, targetElement);
-                }
+                hideContextMenu(); clearContextMenuTargets(); enterMultiSelect();
+                if (selectedMultiIds.indexOf(targetId) === -1) { toggleMultiSelect(targetId, contextMenuTargetElement); }
             }
         }
 
-        // CRITICAL FIX: Robust null checking added here in the previous step
         function toggleMultiSelect(id, element) {
             const index = selectedMultiIds.indexOf(id);
             const overlay = element.querySelector('.multi-select-overlay');
-
-            // 1. CRITICAL NULL CHECK: Ensure the overlay is present
-            if (!overlay) {
-                console.error("Error: Multi-select overlay element is null for card:", element);
-                return;
-            }
-
-            const checkmark = overlay.querySelector('svg');
-            // 2. CRITICAL NULL CHECK: Ensure the checkmark is present
-            if (!checkmark) {
-                console.error("Error: Checkmark SVG element is null for overlay:", overlay);
-                return;
-            }
-
+            const checkmark = overlay ? overlay.querySelector('svg') : null;
+            if (!overlay || !checkmark) return;
             if (index > -1) {
                 selectedMultiIds.splice(index, 1);
                 element.classList.remove('multi-selected', 'border-indigo-500', 'ring-2', 'shadow-xl');
                 element.classList.add('border-gray-100');
-                overlay.classList.add('hidden');
-                checkmark.classList.remove('opacity-100');
-
+                overlay.classList.add('hidden'); checkmark.classList.remove('opacity-100');
             } else if (isMultiSelectMode) {
                 selectedMultiIds.push(id);
                 element.classList.add('multi-selected', 'border-indigo-500', 'ring-2', 'shadow-xl');
                 element.classList.remove('border-gray-100');
-                overlay.classList.remove('hidden');
-                checkmark.classList.add('opacity-100');
+                overlay.classList.remove('hidden'); checkmark.classList.add('opacity-100');
             }
-
             updateMultiSelectUI();
         }
 
         function updateMultiSelectUI() {
             const count = selectedMultiIds.length;
             selectedCountSpan.textContent = count;
-            deleteCountSpan.textContent = count;
+
+            const btnSpan = document.getElementById('deleteCount');
+            if(btnSpan) btnSpan.textContent = `(${count})`;
 
             const canSwitch = count === 2;
             multiSwitchBtn.disabled = !canSwitch;
             multiSwitchBtn.classList.toggle('opacity-50', !canSwitch);
-            // Toggle opacity class
-            if (canSwitch) {
-                swapItem1Input.value = selectedMultiIds[0];
-                swapItem2Input.value = selectedMultiIds[1];
-            } else {
-                swapItem1Input.value = "";
-                swapItem2Input.value = "";
-            }
-
+            if (canSwitch) { swapItem1Input.value = selectedMultiIds[0]; swapItem2Input.value = selectedMultiIds[1]; }
+            else { swapItem1Input.value = ""; swapItem2Input.value = ""; }
             const canDelete = count > 0;
             massDeleteBtn.disabled = !canDelete;
-            massDeleteBtn.classList.toggle('opacity-50', !canDelete); // Toggle opacity class
-            if (canDelete) {
-                massDeleteItemsInput.value = selectedMultiIds.join(',');
-            } else {
-                massDeleteItemsInput.value = "";
-            }
+            massDeleteBtn.classList.toggle('opacity-50', !canDelete);
+            if (canDelete) { massDeleteItemsInput.value = selectedMultiIds.join(','); }
+            else { massDeleteItemsInput.value = ""; }
         }
 
-        // --- Global Listener for Menu Options ---
-        document.getElementById('openMenuBtn').addEventListener('click', () => {
-            menuModal.classList.toggle('hidden');
-        });
-        // Close the Menu Options and Context Menu modals when clicking outside
-        document.addEventListener('click', (e) => {
-            const openMenuBtn = document.getElementById('openMenuBtn');
+        async function askSari(mode) {
+            const modal = document.getElementById('aiModal');
+            const responseBox = document.getElementById('aiResponse');
+            const dropdown = document.getElementById('sariDropdown');
+            if(dropdown) dropdown.classList.add('hidden');
+            showSariThinking("Analyzing...");
+            try {
+                const response = await fetch(`/Dash?handler=AiInsight&mode=${mode}`);
+                const data = await response.json();
+                hideSariThinking();
+                responseBox.textContent = "";
+                modal.classList.remove('hidden');
+                typeWriter(data.message, responseBox);
+            } catch (err) { hideSariThinking(); alert("Sari is sleeping."); }
+        }
 
-            // Fix 1: Check if the click target is the tutorial button or a child (SVG, span) of it
-            const isClickOnTutorialOpener = tutorialBtn.contains(e.target) || e.target === tutorialBtn;
-
-            // Fix 2: Check if the click target is the menu button OR any of its children (SVG, span)
-            const isClickOnMenuOpener = openMenuBtn.contains(e.target);
-
-            // Close the Menu Options modal if clicking outside AND NOT on the button/children
-            // This is the CRUCIAL FIX for the menu button issue.
-            if (!menuModal.classList.contains('hidden') && !menuModal.contains(e.target) && !isClickOnMenuOpener) {
-                menuModal.classList.add('hidden');
-            }
-
-            // Close the Context Menu modal if clicking outside
-            if (!contextMenu.classList.contains('hidden') && !contextMenu.contains(e.target)) {
-                hideContextMenu();
-                clearContextMenuTargets();
-            }
-
-            // Complete Tutorial Modal Fix (Prevents the modal from closing immediately after opening)
-            if (!tutorialModal.classList.contains('hidden') && !tutorialModal.contains(e.target) && !isClickOnTutorialOpener) {
-                closeTutorialModal();
-            }
-
-        });
-        // Prevent context menu from appearing if it's already shown and you right-click elsewhere
-        document.addEventListener('contextmenu', (e) => {
-            if (!contextMenu.classList.contains('hidden')) {
-                e.preventDefault();
-            }
-        });
+        function typeWriter(text, element) {
+            let i = 0; const speed = 15;
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i); i++;
+                    const container = element.parentElement; container.scrollTop = container.scrollHeight;
+                    setTimeout(type, speed);
+                }
+            } type();
+        }
     </script>
 }

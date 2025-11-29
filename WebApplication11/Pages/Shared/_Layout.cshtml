@@ -3,31 +3,31 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Inventory System</title>
+    <title>@ViewData["Title"] - Sari-Sari Marketplace</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
-
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb; /* Light background for a clean look */
+            background-color: #f7f9fb;
         }
-        /* Custom scrollbar for better aesthetics, especially for the inventory grid */
+
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
         }
 
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1; /* slate-300 */
+            background: #cbd5e1;
             border-radius: 4px;
         }
 
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9; /* slate-100 */
+            background: #f1f5f9;
         }
 
-        /* --- Toast Notification Styles --- */
+        /* Toast Notification */
         #toast-notification {
             position: fixed;
             top: 50%;
@@ -38,6 +38,7 @@
             font-weight: 500;
             color: white;
             opacity: 0;
+            pointer-events: none; /* Hidden by default */
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
             transform: translate(-50%, -50%) scale(0.9);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -46,39 +47,93 @@
             #toast-notification.show {
                 opacity: 1;
                 transform: translate(-50%, -50%) scale(1);
+                pointer-events: auto;
             }
 
             #toast-notification.success {
-                background-color: #10B981; /* Tailwind green-600 */
+                background-color: #10B981;
             }
 
             #toast-notification.error {
-                background-color: #EF4444; /* Tailwind red-600 */
+                background-color: #EF4444;
             }
     </style>
-
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <header class="bg-white shadow-md sticky top-0 z-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-            <a asp-page="/Index" class="text-xl font-bold text-gray-800 tracking-tight">
-                INVENTORY SYSTEM
+    <header class="bg-white shadow-md sticky top-0 z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center gap-4">
+
+            @* --- BRAND --- *@
+            <a asp-page="/Index" class="text-xl font-bold text-indigo-700 tracking-tight flex items-center gap-2 flex-shrink-0">
+                <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                <span class="hidden sm:inline">Sari-Sari Marketplace</span>
             </a>
 
-            <nav>
-                @* Show Dashboard/Reports only if user is logged in *@
-                @if (User.Identity != null && User.Identity.IsAuthenticated)
-                {
-                    <a asp-page="/Dash" class="text-sm font-medium text-gray-500 hover:text-gray-900 mx-2">Dashboard</a>
-                    <a asp-page="/Dash" asp-page-handler="PdfReport" class="text-sm font-medium text-gray-500 hover:text-gray-900 mx-2">Reports</a>
-                }
-                else
-                {
-                    @* If not logged in, they only see Dashboard link pointing to login *@
-                    <a asp-page="/Index" class="text-sm font-medium text-gray-500 hover:text-gray-900 mx-2">Login</a>
-                }
-            </nav>
+            @* --- GLOBAL SEARCH BAR (New) --- *@
+            <div class="flex-1 max-w-lg hidden md:block">
+                <form action="/Shop" method="get" class="relative">
+                    @if (Context.Request.Query.ContainsKey("StoreId"))
+                    {
+                        <input type="hidden" name="StoreId" value="@Context.Request.Query["StoreId"]" />
+                    }
+                    <input type="text" name="SearchTerm" value="@Context.Request.Query["SearchTerm"]"
+                           placeholder="Search items or categories..."
+                           class="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm bg-gray-50 hover:bg-white transition-colors" />
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                </form>
+            </div>
+
+            <div class="flex items-center space-x-4 flex-shrink-0">
+
+                @* --- CURRENCY SELECTOR --- *@
+                <select id="currencySelector" onchange="changeCurrency(this.value)" class="text-sm border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-gray-700 bg-gray-50">
+                    <option value="PHP">🇵🇭 PHP</option>
+                    <option value="USD">🇺🇸 USD</option>
+                    <option value="JPY">🇯🇵 JPY</option>
+                    <option value="EUR">🇪🇺 EUR</option>
+                </select>
+
+                <nav class="flex items-center space-x-1 sm:space-x-4">
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <a asp-page="/Shop" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">Shop</a>
+
+                        <a asp-page="/Dash" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">My Store</a>
+
+                        <a asp-page="/Reports" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">Reports</a>
+
+                        @* Cart Icon - HIDDEN ON DASHBOARD *@
+                        @if (ViewContext.RouteData.Values["page"]?.ToString() != "/Dash")
+                        {
+                            var storeId = Context.Request.Query["StoreId"];
+                            var cartLink = string.IsNullOrEmpty(storeId) ? "/Shop?view=cart" : $"/Shop?StoreId={storeId}&view=cart";
+
+                            <a href="@cartLink" class="relative cursor-pointer group p-2 hover:bg-gray-100 rounded-full transition">
+                                <svg class="w-6 h-6 text-gray-600 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                @{
+                                    var session = Context.Session;
+                                    string cartJson = session.GetString("Cart") ?? "[]";
+                                    var cartList = System.Text.Json.JsonSerializer.Deserialize<List<WebApplication11.Pages.CartItem>>(cartJson);
+                                    var count = cartList?.Sum(c => c.Quantity) ?? 0;
+                                }
+                                <span id="cartCount" class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full @(count == 0 ? "hidden" : "")">@count</span>
+                            </a>
+                        }
+
+                        @* Logout *@
+                        <form method="post" asp-page="/Dash" asp-page-handler="Logout" class="inline ml-2">
+                            <button type="submit" class="px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors">Logout</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-page="/Index" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm">Login / Join</a>
+                    }
+                </nav>
+            </div>
         </div>
     </header>
 
@@ -90,45 +145,59 @@
 
     <footer class="bg-gray-100 border-t border-gray-200 py-4 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-500">
-            &copy; @DateTime.Now.Year Inventory Management Solution | UI Prototype
+            &copy; @DateTime.Now.Year Online Sari Sari Store | Powered by <span class="font-bold text-indigo-500">Sari AI</span>
         </div>
     </footer>
 
-    @if (TempData["success"] != null)
-    {
-        <div id="toast-notification" class="success">
+    @* --- FIXED TOAST CONTAINER: Always exists in DOM --- *@
+    <div id="toast-notification" class="@(TempData["success"] != null ? "success show" : "") @(TempData["error"] != null ? "error show" : "")">
+        @if (TempData["success"] != null)
+        {
             @TempData["success"]
-        </div>
-    }
-    @if (TempData["error"] != null)
-    {
-        <div id="toast-notification" class="error">
+        }
+        @if (TempData["error"] != null)
+        {
             @TempData["error"]
-        </div>
-    }
+        }
+    </div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
-            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
-            crossorigin="anonymous"></script>
-
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
-
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Auto-hide toast if shown by TempData
             const toast = document.getElementById('toast-notification');
-            if (toast) {
-                // Show the toast
-                setTimeout(() => {
-                    toast.classList.add('show');
-                }, 100);
-
-                // Hide the toast after 4 seconds
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 4000);
+            if (toast && toast.classList.contains('show')) {
+                setTimeout(() => { toast.classList.remove('show'); }, 4000);
             }
+            // Restore Currency Selection
+            const savedCurrency = localStorage.getItem('sariCurrency') || 'PHP';
+            document.getElementById('currencySelector').value = savedCurrency;
+            applyCurrency(savedCurrency);
         });
-    </script>
 
+        // --- GLOBAL CURRENCY LOGIC ---
+        function changeCurrency(currency) {
+            localStorage.setItem('sariCurrency', currency);
+            applyCurrency(currency);
+        }
+
+        function applyCurrency(currency) {
+            let rate = 1;
+            let symbol = '₱';
+
+            if (currency === 'USD') { rate = 0.018; symbol = '$'; }
+            else if (currency === 'JPY') { rate = 2.65; symbol = '¥'; }
+            else if (currency === 'EUR') { rate = 0.016; symbol = '€'; }
+
+            document.querySelectorAll('.price-display').forEach(el => {
+                const originalPrice = parseFloat(el.getAttribute('data-price-php'));
+                if (!isNaN(originalPrice)) {
+                    const converted = (originalPrice * rate).toFixed(2);
+                    el.textContent = `${symbol}${converted}`;
+                }
+            });
+        }
+    </script>
 </body>
 </html>
