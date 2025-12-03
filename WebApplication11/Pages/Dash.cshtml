@@ -24,7 +24,6 @@
         </div>
 
         <div class="flex items-center space-x-3">
-
             @* --- MESSAGES BUTTON --- *@
             <button onclick="openInboxModal()" class="relative p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm transition border border-gray-200" title="Messages">
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
@@ -37,7 +36,6 @@
                     <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
                     <span id="notifBadge" class="absolute top-0 right-0 h-3 w-3 bg-indigo-500 rounded-full hidden border-2 border-white"></span>
                 </button>
-                @* Notification Dropdown *@
                 <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-hidden">
                     <div class="px-4 py-2 bg-gray-50 border-b flex justify-between items-center">
                         <span class="text-sm font-bold text-gray-700">Notifications</span>
@@ -71,43 +69,30 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
                     <span>Menu Options</span>
                 </button>
-
-                @* --- DROPDOWN MENU --- *@
                 <div id="menuOptionsModal" class="hidden absolute right-0 top-full mt-2 w-64 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-40">
                     <div class="py-1">
                         <button onclick="openCreateModal()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
                             <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             <span>Create New Item</span>
                         </button>
-
                         <button onclick="openStoreSettings()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
                             <svg class="w-5 h-5 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
                             <span>Store Settings</span>
                         </button>
-
                         <a href="/Shop?StoreId=@Model.CurrentStore.Id" target="_blank" class="w-full text-left px-4 py-3 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center space-x-3">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                             <span>View Public Storefront</span>
                         </a>
-
-                        <button id="tutorialBtn" onclick="showTutorial()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-                            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <span>How to Use (Tutorial)</span>
-                        </button>
-
                         <button id="selectMoreToggle" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3 border-t border-gray-100">
-                            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
+                            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
                             <span>Select More Items</span>
                         </button>
-
                         <form method="post" asp-page-handler="ReIndex" onsubmit="return confirm('Confirm re-indexing?');">
                             <button type="submit" class="w-full text-left px-4 py-3 text-sm text-yellow-700 bg-yellow-50 hover:bg-yellow-100 flex items-center space-x-3">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0l3-3m-3 3l3 3m12 6v-5h-.582m0 0a8.003 8.003 0 01-15.356-2m15.356 2l-3 3m3-3l-3-3"></path></svg>
                                 <span>Re-Index Positions</span>
                             </button>
                         </form>
-
-                        @* --- DEV TOOLS --- *@
                         <form method="post" asp-page-handler="SeedInventory" class="border-t border-gray-100 bg-gray-50" onsubmit="showSariThinking('Stocking the shelves with goodies...')">
                             <button type="submit" class="w-full text-left px-4 py-3 text-xs font-bold text-gray-500 hover:bg-gray-200 flex items-center space-x-3 uppercase tracking-wider">
                                 <span>🎲 Dev: Populate Inventory</span>
@@ -122,9 +107,7 @@
     @* --- SARI THINKING BUBBLE --- *@
     <div id="sariThinking" class="fixed bottom-10 right-10 z-50 hidden transition-all duration-500 transform translate-y-10 opacity-0">
         <div class="bg-white border-2 border-indigo-600 rounded-tr-2xl rounded-tl-2xl rounded-bl-2xl p-4 shadow-2xl flex items-center gap-4 animate-bounce">
-            <div class="bg-indigo-100 p-2 rounded-full">
-                <span class="text-2xl">✨</span>
-            </div>
+            <div class="bg-indigo-100 p-2 rounded-full"><span class="text-2xl">✨</span></div>
             <div>
                 <p class="font-bold text-indigo-700 text-sm">Sari is thinking...</p>
                 <p class="text-xs text-gray-500" id="sariThinkingText">Processing your request...</p>
@@ -135,9 +118,7 @@
     @* --- MULTI SELECT BAR --- *@
     <div id="multiSelectBar" class="hidden w-full bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm p-3 -mt-4 mb-4 z-10 transition-all duration-300">
         <div class="flex justify-between items-center">
-            <p class="text-sm font-medium text-indigo-700">
-                <span id="selectedCount">0</span> item(s) selected
-            </p>
+            <p class="text-sm font-medium text-indigo-700"><span id="selectedCount">0</span> item(s) selected</p>
             <div class="flex items-center space-x-3">
                 <form method="post" asp-page-handler="Swap" id="multiSwitchForm">
                     <input type="hidden" name="ItemsToSwitch" id="swap_item1">
@@ -147,15 +128,13 @@
                         <span>Switch 2 Items</span>
                     </button>
                 </form>
-
                 <form method="post" asp-page-handler="MassDelete" id="massDeleteForm">
                     <input type="hidden" name="ItemsToDelete" id="mass_delete_items">
                     <button type="button" onclick="triggerCustomConfirm('delete')" id="massDeleteBtn" class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2" disabled>
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         <span>Mass Delete <span id="deleteCount">(0)</span></span>
                     </button>
                 </form>
-
                 <button onclick="exitMultiSelect()" class="text-indigo-700 hover:text-indigo-900 ml-2">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -182,13 +161,13 @@
             {
                 string base64Image = null;
                 bool hasImage = item.LogoData != null && item.LogoContentType != null;
-                if (hasImage)
-                {
-                    base64Image = $"data:{item.LogoContentType};base64,{Convert.ToBase64String(item.LogoData!)}";
-                }
+                if (hasImage) { base64Image = $"data:{item.LogoContentType};base64,{Convert.ToBase64String(item.LogoData!)}"; }
                 var iconData = iconDataList[index % iconCount];
+
+                // ADDED: data-item-cost attribute for JS usage [cite: 4]
                 <div class="item-card bg-gray-50 p-3 rounded-lg border border-gray-100 hover:shadow-lg transition duration-150 ease-in-out cursor-pointer relative"
-                     data-item-id="@item.Id" data-item-name="@item.Name" data-item-qty="@item.Quantity" data-item-price="@item.Price" data-item-position="@item.Position"
+                     data-item-id="@item.Id" data-item-name="@item.Name" data-item-qty="@item.Quantity"
+                     data-item-price="@item.Price" data-item-cost="@item.CostPrice" data-item-position="@item.Position"
                      onclick="handleItemClick(event, this)" oncontextmenu="handleContextMenu(event, this)">
 
                     <div class="h-20 w-full @(hasImage ? "p-0" : iconData.BgColor) flex items-center justify-center rounded-md mb-2 overflow-hidden">
@@ -198,23 +177,18 @@
                         }
                         else
                         {
-                            <svg class="w-10 h-10 @iconData.Color" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="@iconData.Path"></path>
-                            </svg>
+
+                            <svg class="w-10 h-10 @iconData.Color" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="@iconData.Path"></path></svg>
                         }
                     </div>
-
                     <p class="text-sm font-semibold text-gray-800 truncate">@item.Name</p>
                     <p class="text-xs text-gray-500 mb-1 truncate">@item.Category</p>
                     <div class="flex justify-between items-end">
                         <div class="text-xs text-gray-500">Stock: <span class="font-medium text-gray-700">@item.Quantity</span></div>
                         <div class="text-sm font-bold @(item.Quantity == 0 ? "text-red-600" : "text-green-600")">$@item.Price.ToString("N2")</div>
                     </div>
-
                     <div class="multi-select-overlay hidden absolute inset-0 bg-indigo-500 bg-opacity-10 border-4 border-transparent rounded-lg flex items-start justify-end p-2 pointer-events-none">
-                        <svg class="w-6 h-6 text-indigo-600 opacity-0 transition-opacity" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                        </svg>
+                        <svg class="w-6 h-6 text-indigo-600 opacity-0 transition-opacity" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
                     </div>
                 </div>
                 index++;
@@ -252,7 +226,7 @@
     </div>
 </div>
 
-@* --- OTHER MODALS --- *@
+@* --- CONTEXT MENU --- *@
 <div id="contextMenu" class="hidden absolute w-48 rounded-md shadow-xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50">
     <div class="py-1">
         <button id="updateItemBtn" onclick="prepareEditDeleteModal('edit')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
@@ -313,9 +287,7 @@
                     <div class="relative">
                         <input type="text" asp-for="NewItem.Category" id="new_category" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., Snacks (AI will guess if empty)">
                         <div id="aiCategoryBadge" class="absolute right-2 top-2 hidden">
-                            <span class="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold">
-                                ✨ Auto-filled
-                            </span>
+                            <span class="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold">✨ Auto-filled</span>
                         </div>
                     </div>
                 </div>
@@ -324,7 +296,11 @@
                     <input type="number" asp-for="NewItem.Quantity" id="new_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 50" min="0" required>
                 </div>
                 <div>
-                    <label for="new_price" class="block text-sm font-medium text-gray-700">Price ($)</label>
+                    <label for="new_cost" class="block text-sm font-medium text-gray-700">Cost Price (Puhunan)</label>
+                    <input type="number" asp-for="NewItem.CostPrice" id="new_cost" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 20.00" step="0.01" min="0" required>
+                </div>
+                <div>
+                    <label for="new_price" class="block text-sm font-medium text-gray-700">Selling Price (SRP)</label>
                     <input type="number" asp-for="NewItem.Price" id="new_price" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 29.99" step="0.01" min="0.01" required>
                 </div>
                 <div>
@@ -358,7 +334,11 @@
                 <input type="number" asp-for="EditItem.Quantity" id="edit_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" min="0" required>
             </div>
             <div>
-                <label for="edit_price" class="block text-sm font-medium text-gray-700">Price ($)</label>
+                <label for="edit_cost" class="block text-sm font-medium text-gray-700">Cost Price</label>
+                <input type="number" asp-for="EditItem.CostPrice" id="edit_cost" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0" required>
+            </div>
+            <div>
+                <label for="edit_price" class="block text-sm font-medium text-gray-700">Selling Price</label>
                 <input type="number" asp-for="EditItem.Price" id="edit_price" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0.01" required>
             </div>
             <div>
@@ -371,7 +351,6 @@
                 <button type="submit" id="updateActionButton" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700">Update Item</button>
             </div>
         </form>
-
         <form method="post" asp-page-handler="Delete" id="deleteForm" class="hidden">
             <p class="text-md text-red-700 mb-4">Are you sure you want to permanently delete this item?</p>
             <input type="hidden" name="DeleteId" id="delete_id" value="" />
@@ -386,9 +365,7 @@
 <div id="aiModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[80vh]">
         <div class="px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 flex justify-between items-center">
-            <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                <span class="text-2xl">✨</span> Sari Assistant
-            </h3>
+            <h3 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">✨</span> Sari Assistant</h3>
             <button onclick="document.getElementById('aiModal').classList.add('hidden')" class="text-white hover:text-gray-200 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
@@ -422,7 +399,7 @@
         const multiSelectBar = document.getElementById('multiSelectBar');
         const allItemCards = document.querySelectorAll('.item-card');
         const selectedCountSpan = document.getElementById('selectedCount');
-        const deleteCountSpan = document.getElementById('deleteCount'); // Ensure ID exists in HTML
+        const deleteCountSpan = document.getElementById('deleteCount');
         const multiSwitchBtn = document.getElementById('multiSwitchBtn');
         const massDeleteBtn = document.getElementById('massDeleteBtn');
         const swapItem1Input = document.getElementById('swap_item1');
@@ -433,12 +410,10 @@
         const sariDropdown = document.getElementById('sariDropdown');
         const notifDropdown = document.getElementById('notifDropdown');
 
-        // --- TOGGLE HANDLERS ---
         function toggleMenuOptions(event) { event.stopPropagation(); if(menuModal) menuModal.classList.toggle('hidden'); }
         function toggleSariMenu(event) { event.stopPropagation(); if(sariDropdown) sariDropdown.classList.toggle('hidden'); }
         function toggleNotifications(event) { event.stopPropagation(); if(notifDropdown) notifDropdown.classList.toggle('hidden'); }
 
-        // --- GLOBAL CLICK CLOSE ---
         document.addEventListener('click', (e) => {
              if (menuModal && !menuModal.classList.contains('hidden') && !menuModal.contains(e.target)) menuModal.classList.add('hidden');
              if (sariDropdown && !sariDropdown.classList.contains('hidden') && !sariDropdown.contains(e.target)) sariDropdown.classList.add('hidden');
@@ -446,14 +421,13 @@
              if (contextMenu && !contextMenu.classList.contains('hidden') && !contextMenu.contains(e.target)) { hideContextMenu(); clearContextMenuTargets(); }
         });
 
-        // --- NOTIFICATION POLLING ---
+        // Notifications
         setInterval(async () => {
             try {
                 const res = await fetch('/Dash?handler=FetchNotifications');
                 const data = await res.json();
                 const list = document.getElementById('notifList');
                 const badge = document.getElementById('notifBadge');
-
                 if(data.notifications && data.notifications.length > 0) {
                     badge.classList.remove('hidden');
                     let html = '';
@@ -461,11 +435,7 @@
                         let color = 'bg-gray-100';
                         if(n.type === 'order') color = 'bg-green-50 border-green-200';
                         else if(n.type === 'cart') color = 'bg-blue-50 border-blue-200';
-
-                        html += `<div class="p-3 border-b border-gray-100 text-sm ${color}">
-                                    <p class="text-gray-800">${n.message}</p>
-                                    <span class="text-xs text-gray-400 block mt-1">${new Date(n.timestamp).toLocaleTimeString()}</span>
-                                 </div>`;
+                        html += `<div class="p-3 border-b border-gray-100 text-sm ${color}"><p class="text-gray-800">${n.message}</p><span class="text-xs text-gray-400 block mt-1">${new Date(n.timestamp).toLocaleTimeString()}</span></div>`;
                     });
                     list.innerHTML = html;
                 } else {
@@ -473,7 +443,7 @@
                     list.innerHTML = '<div class="p-4 text-center text-xs text-gray-400">No new notifications</div>';
                 }
             } catch(e) {}
-        }, 10000); // Check every 10s
+        }, 10000);
 
         async function clearNotifications() {
             const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
@@ -482,7 +452,7 @@
             document.getElementById('notifBadge').classList.add('hidden');
         }
 
-        // --- MESSAGE POLLING ---
+        // Messages
         let lastGuestId = null;
         setInterval(async () => {
             try {
@@ -531,7 +501,6 @@
             renderMessages(data.messages);
         }
 
-        // --- EXISTING LOGIC ---
         function triggerCustomConfirm(action) {
             const modal = document.getElementById('customConfirmModal');
             const title = document.getElementById('confirmTitle');
@@ -585,8 +554,6 @@
         function openCreateModal() { menuModal.classList.add('hidden'); createModal.classList.remove('hidden'); }
         function closeCreateModal() { createModal.classList.add('hidden'); }
         function closeEditModal() { editModal.classList.add('hidden'); }
-        function showTutorial() { menuModal.classList.add('hidden'); document.getElementById('tutorialModal').classList.remove('hidden'); }
-        function closeTutorialModal() { document.getElementById('tutorialModal').classList.add('hidden'); }
         function openStoreSettings() { menuModal.classList.add('hidden'); document.getElementById('storeSettingsModal').classList.remove('hidden'); }
         function hideContextMenu() { contextMenu.classList.add('hidden'); }
         function clearContextMenuTargets() { contextMenuTargetId = null; contextMenuTargetElement = null; }
@@ -597,6 +564,8 @@
             const name = contextMenuTargetElement.getAttribute('data-item-name');
             const qty = contextMenuTargetElement.getAttribute('data-item-qty');
             const price = contextMenuTargetElement.getAttribute('data-item-price');
+            const cost = contextMenuTargetElement.getAttribute('data-item-cost'); // NEW
+
             hideContextMenu();
             if (action === 'edit') {
                 document.getElementById('editModalTitle').textContent = `Update Item: ${name}`;
@@ -605,6 +574,7 @@
                 document.getElementById('edit_name').value = name;
                 document.getElementById('edit_qty').value = qty;
                 document.getElementById('edit_price').value = price;
+                document.getElementById('edit_cost').value = cost; // NEW
                 document.getElementById('LogoFile_edit').value = '';
             } else if (action === 'delete') {
                 document.getElementById('editModalTitle').textContent = `Confirm Deletion for: ${name}`;
@@ -688,10 +658,8 @@
         function updateMultiSelectUI() {
             const count = selectedMultiIds.length;
             selectedCountSpan.textContent = count;
-
             const btnSpan = document.getElementById('deleteCount');
             if(btnSpan) btnSpan.textContent = `(${count})`;
-
             const canSwitch = count === 2;
             multiSwitchBtn.disabled = !canSwitch;
             multiSwitchBtn.classList.toggle('opacity-50', !canSwitch);
@@ -721,10 +689,12 @@
         }
 
         function typeWriter(text, element) {
-            let i = 0; const speed = 15;
+            let i = 0;
+            const speed = 15;
             function type() {
                 if (i < text.length) {
-                    element.textContent += text.charAt(i); i++;
+                    element.textContent += text.charAt(i);
+                    i++;
                     const container = element.parentElement; container.scrollTop = container.scrollHeight;
                     setTimeout(type, speed);
                 }

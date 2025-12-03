@@ -111,13 +111,13 @@ namespace WebApplication11.Pages
         [BindProperty]
         public RegisterInputModel RegisterInput { get; set; } = new();
 
+        [BindProperty]
         public VerifyCodeInputModel VerifyInput { get; set; } = new();
 
         public IActionResult OnGet()
         {
             if (User.Identity?.IsAuthenticated == true)
             {
-                // Check Role claim if available, otherwise default to Dash
                 return RedirectToPage("/Dash");
             }
             return Page();
@@ -138,28 +138,32 @@ namespace WebApplication11.Pages
                     Email = email,
                     PasswordHash = "GOOGLE_AUTH_USER",
                     IsEmailVerified = true,
-                    Role = "Seller" // Default to Seller for Google Logins for now
+                    Role = "Seller"
                 };
                 await collection.InsertOneAsync(user);
             }
 
             await SignInUser(user);
-            // Redirect based on role
             string redirect = user.Role == "Customer" ? Url.Page("/Shop") : Url.Page("/Dash");
             return new JsonResult(new { success = true, redirectUrl = redirect });
         }
 
         public async Task<JsonResult> OnPostLoginAsync([FromForm] LoginInputModel LoginInput)
         {
-            if (!ModelState.IsValid)
+            // CRITICAL FIX: Clear errors from Register/Verify forms
+            ModelState.Clear();
+
+            // Re-validate ONLY the LoginInput
+            if (!TryValidateModel(LoginInput, nameof(LoginInput)))
             {
                 Response.StatusCode = 400;
-                return new JsonResult(new { success = false, message = "Invalid data submitted." });
+                var errorMsg = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return new JsonResult(new { success = false, message = errorMsg });
             }
 
             var collection = _db.GetCollection<User>(UserCollectionName);
-            var loginInput = LoginInput.UsernameOrEmail;
-            var user = await collection.Find(u => u.Username == loginInput || u.Email == loginInput).FirstOrDefaultAsync();
+            var loginIdentifier = LoginInput.UsernameOrEmail;
+            var user = await collection.Find(u => u.Username == loginIdentifier || u.Email == loginIdentifier).FirstOrDefaultAsync();
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(LoginInput.Password, user.PasswordHash))
             {
@@ -185,16 +189,17 @@ namespace WebApplication11.Pages
             }
 
             await SignInUser(user);
-
-            // Redirect based on Role
             string redirectUrl = (user.Role == "Customer") ? Url.Page("/Shop") : Url.Page("/Dash");
-
             return new JsonResult(new { success = true, redirectUrl = redirectUrl });
         }
 
         public async Task<JsonResult> OnPostRegisterAsync([FromForm] RegisterInputModel RegisterInput)
         {
-            if (!ModelState.IsValid)
+            // CRITICAL FIX: Clear errors from Login/Verify forms
+            ModelState.Clear();
+
+            // Re-validate ONLY the RegisterInput
+            if (!TryValidateModel(RegisterInput, nameof(RegisterInput)))
             {
                 var errorMsg = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
                 Response.StatusCode = 400;
@@ -217,7 +222,7 @@ namespace WebApplication11.Pages
                     Email = RegisterInput.Email,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(RegisterInput.Password),
                     IsEmailVerified = false,
-                    Role = RegisterInput.Role // Save the selected role
+                    Role = RegisterInput.Role
                 };
 
                 await collection.InsertOneAsync(newUser);
@@ -240,7 +245,14 @@ namespace WebApplication11.Pages
 
         public async Task<JsonResult> OnPostVerifyCodeAsync([FromForm] VerifyCodeInputModel VerifyInput)
         {
-            if (!ModelState.IsValid) return new JsonResult(new { success = false, message = "Invalid Data" });
+            // CRITICAL FIX: Clear errors from Login/Register forms
+            ModelState.Clear();
+
+            // Re-validate ONLY the VerifyInput
+            if (!TryValidateModel(VerifyInput, nameof(VerifyInput)))
+            {
+                return new JsonResult(new { success = false, message = "Invalid code or email format." });
+            }
 
             var collection = _db.GetCollection<User>(UserCollectionName);
             var user = await collection.Find(u => u.Email == VerifyInput.Email).FirstOrDefaultAsync();
@@ -313,7 +325,7 @@ namespace WebApplication11.Pages
             {
                 new(ClaimTypes.Name, user.Username),
                 new(ClaimTypes.NameIdentifier, user.Id!),
-                new(ClaimTypes.Role, user.Role) // Add Role claim
+                new(ClaimTypes.Role, user.Role)
             };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

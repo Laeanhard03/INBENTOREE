@@ -1,22 +1,23 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using MongoDB.Driver;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Driver;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using System.Linq;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using System;
-using System.Security.Claims;
 using System.Net.Http;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
+using WebApplication11.Services;
 
 namespace WebApplication11.Pages;
 
@@ -31,11 +32,11 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
     private const string ChatCollectionName = "Chats";
     private const string NotifCollectionName = "Notifications";
 
-    // --- Page Data ---
-    public List<Item> Items { get; set; } = [];
+    private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    public List<Item> Items { get; set; } = new();
     public Store CurrentStore { get; set; } = new();
 
-    // --- Bind Properties for Forms ---
     [BindProperty] public Item NewItem { get; set; } = new();
     [BindProperty] public IFormFile? LogoFile { get; set; }
     [BindProperty] public Item EditItem { get; set; } = new();
@@ -48,8 +49,6 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
     public async Task OnGetAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        _logger.LogInformation("User {UserId} accessing dashboard.", userId);
-
         var storeCollection = _db.GetCollection<Store>(StoreCollectionName);
         var store = await storeCollection.Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
 
@@ -71,33 +70,31 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
                              .ToListAsync();
     }
 
-    // --- AI Handler ---
     public async Task<IActionResult> OnGetAiInsightAsync(string mode, string input = "")
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var store = await _db.GetCollection<Store>(StoreCollectionName).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
         var items = await _db.GetCollection<Item>(CollectionName).Find(i => i.StoreId == store.Id).ToListAsync();
 
-        var inventorySummary = string.Join("\n", items.Select(i => $"- {i.Name} ({i.Category}): {i.Quantity} units @ ${i.Price}"));
+        var inventorySummary = string.Join("\n", items.Select(i => $"- {i.Name} ({i.Category}): {i.Quantity} units @ SRP: ${i.Price} / Cost: ${i.CostPrice}"));
 
         string prompt = "";
         switch (mode)
         {
             case "categorize":
-                prompt = $"Categorize this specific item: '{input}' into exactly ONE of these categories: [Canned Goods, Snacks, Beverages, Toiletries, Condiments, Rice/Grains, Household, Others]. Respond ONLY with the category name, no extra text.";
+                prompt = $"Categorize this item: '{input}' into exactly ONE category: [Canned Goods, Snacks, Beverages, Toiletries, Condiments, Rice, Household, Others]. Respond ONLY with category name.";
                 break;
             case "restock":
-                prompt = $"Analyze this inventory:\n{inventorySummary}\nSuggest which items need restocking based on low quantity (< 5). Suggest 3 new popular Filipino items to add.";
+                prompt = $"Analyze this inventory:\n{inventorySummary}\nSuggest which items need restocking (< 5). Suggest 3 popular Filipino items to add.";
                 break;
             case "design":
-                prompt = "Give me 3 creative and cheap tips to design a Filipino Sari-Sari store to attract more customers. Keep it fun.";
+                prompt = "Give me 3 creative tips to design a Filipino Sari-Sari store.";
                 break;
             case "joke":
-                prompt = "Tell me a funny joke about owning a Sari-Sari store or customers in the Philippines.";
+                prompt = "Tell me a joke about Sari-Sari stores.";
                 break;
-            case "summary":
             default:
-                prompt = $"Analyze this inventory:\n{inventorySummary}\n1. Total value estimate.\n2. Most expensive item.\n3. Item with highest stock.";
+                prompt = $"Analyze this inventory:\n{inventorySummary}\n1. Total Value (Retail vs Cost).";
                 break;
         }
 
@@ -107,7 +104,6 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         return new JsonResult(new { message = aiResponse });
     }
 
-    // --- MESSAGING & NOTIFICATION HANDLERS (SELLER SIDE) ---
     public async Task<IActionResult> OnGetFetchMessagesAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -122,14 +118,12 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         return new JsonResult(new { messages = chats });
     }
 
-    // NEW: Fetch Notifications for Bell Icon
     public async Task<IActionResult> OnGetFetchNotificationsAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var store = await _db.GetCollection<Store>(StoreCollectionName).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
         if (store == null) return new JsonResult(new { notifications = new List<object>() });
 
-        // Get unread or recent notifications
         var notifs = await _db.GetCollection<Notification>(NotifCollectionName)
                               .Find(n => n.StoreId == store.Id && !n.IsRead)
                               .SortByDescending(n => n.Timestamp)
@@ -139,7 +133,6 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         return new JsonResult(new { notifications = notifs });
     }
 
-    // NEW: Clear Notifications
     public async Task<IActionResult> OnPostClearNotificationsAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -171,7 +164,6 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         return new JsonResult(new { success = true });
     }
 
-    // --- Dev Tool Seeder ---
     public async Task<IActionResult> OnPostSeedInventoryAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -184,37 +176,21 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
 
         try
         {
-            string prompt = "Generate a JSON list of 8 realistic Filipino Sari-Sari store items. Each item must have: 'Name' (e.g., specific brands like Kopiko, Silver Swan), 'Category' (Snacks, Beverages, Condiments, Toiletries, Canned Goods), 'Price' (in PHP, realistic values), and 'Quantity' (integer between 10-50). Return ONLY the raw JSON array, no markdown.";
+            string prompt = "Generate a JSON list of 5 Filipino Sari-Sari store items. Fields: Name, Category, Price, Cost, Quantity.";
             string jsonResponse = await CallGeminiApi(prompt);
-
-            int start = jsonResponse.IndexOf("[");
-            int end = jsonResponse.LastIndexOf("]");
+            int start = jsonResponse.IndexOf('[');
+            int end = jsonResponse.LastIndexOf(']');
             if (start >= 0 && end > start)
             {
                 jsonResponse = jsonResponse.Substring(start, end - start + 1);
-                seedItems = JsonSerializer.Deserialize<List<SeedItem>>(jsonResponse, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                seedItems = JsonSerializer.Deserialize<List<SeedItem>>(jsonResponse, _jsonOptions);
             }
         }
         catch { }
 
         if (seedItems == null || seedItems.Count == 0)
         {
-            seedItems = new List<SeedItem>
-            {
-                new() { Name = "Lucky Me Pancit Canton", Category = "Snacks", Price = 15, Quantity = 50 },
-                new() { Name = "Coke Mismo", Category = "Beverages", Price = 20, Quantity = 24 },
-                new() { Name = "Skyflakes Crackers", Category = "Snacks", Price = 8, Quantity = 40 },
-                new() { Name = "Safeguard Soap", Category = "Toiletries", Price = 45, Quantity = 15 },
-                new() { Name = "Bear Brand Swak", Category = "Beverages", Price = 12, Quantity = 60 },
-                new() { Name = "Piattos Cheese", Category = "Snacks", Price = 35, Quantity = 10 },
-                new() { Name = "Silver Swan Soy Sauce", Category = "Condiments", Price = 18, Quantity = 20 },
-                new() { Name = "Datu Puti Vinegar", Category = "Condiments", Price = 16, Quantity = 20 }
-            };
-            TempData["success"] = "Sari added some classic items for you!";
-        }
-        else
-        {
-            TempData["success"] = "Sari successfully generated unique items!";
+            seedItems = new List<SeedItem> { new() { Name = "Sample Item", Category = "General", Price = 10, Cost = 8, Quantity = 50 } };
         }
 
         foreach (var seed in seedItems)
@@ -225,59 +201,47 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
                 Name = seed.Name,
                 Category = seed.Category ?? "General",
                 Price = seed.Price,
+                CostPrice = seed.Cost > 0 ? seed.Cost : seed.Price * 0.8m,
                 Quantity = seed.Quantity,
                 Position = ++currentCount,
                 CreatedAt = DateTime.UtcNow
             });
         }
 
-        if (newItems.Count > 0)
-        {
-            await _db.GetCollection<Item>(CollectionName).InsertManyAsync(newItems);
-        }
-
+        if (newItems.Count > 0) await _db.GetCollection<Item>(CollectionName).InsertManyAsync(newItems);
         return RedirectToPage();
     }
 
     private async Task<string> CallGeminiApi(string prompt)
     {
-        string apiKey = _config["Gemini:ApiKey"];
-        if (string.IsNullOrEmpty(apiKey)) return "Configuration Error: Gemini API Key is missing.";
+        string apiKey = EncryptionHelper.Decrypt(_config["Gemini:ApiKey"] ?? string.Empty);
+        if (string.IsNullOrEmpty(apiKey)) return "AI Error: Missing API Key";
 
         string endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
         try
         {
             using var client = new HttpClient();
-            var requestBody = new { contents = new[] { new { parts = new[] { new { text = $"You are Sari, a helpful store assistant. {prompt}" } } } } };
+            var requestBody = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await client.PostAsync(endpoint, content);
             var responseString = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode) return $"Gemini Error: {response.StatusCode}";
-
             using var doc = JsonDocument.Parse(responseString);
             if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
             {
-                var firstCandidate = candidates[0];
-                if (firstCandidate.TryGetProperty("content", out var contentObj) && contentObj.TryGetProperty("parts", out var parts) && parts.GetArrayLength() > 0)
-                {
-                    return parts[0].GetProperty("text").GetString() ?? "Empty response.";
-                }
+                return candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "";
             }
-            return "Could not read AI response.";
+            return "";
         }
-        catch (Exception ex) { return $"Error connecting to AI: {ex.Message}"; }
+        catch { return ""; }
     }
 
-    // ... (Keep existing Handlers) ...
     public async Task<IActionResult> OnPostUpdateStoreAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var storeCollection = _db.GetCollection<Store>(StoreCollectionName);
         var update = Builders<Store>.Update.Set(s => s.StoreName, StoreSettings.StoreName).Set(s => s.ThemeColor, StoreSettings.ThemeColor).Set(s => s.Description, StoreSettings.Description);
-        await storeCollection.UpdateOneAsync(s => s.OwnerId == userId, update);
-        TempData["success"] = "Store settings updated successfully!";
+        await _db.GetCollection<Store>(StoreCollectionName).UpdateOneAsync(s => s.OwnerId == userId, update);
+        TempData["success"] = "Store updated!";
         return RedirectToPage();
     }
     public async Task<IActionResult> OnPostLogoutAsync() { await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme); return RedirectToPage("/Index"); }
@@ -287,10 +251,8 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         var store = await _db.GetCollection<Store>(StoreCollectionName).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
         if (store == null) return RedirectToPage();
         if (LogoFile != null && LogoFile.Length > 0) { NewItem.LogoContentType = LogoFile.ContentType; using var ms = new MemoryStream(); await LogoFile.CopyToAsync(ms); NewItem.LogoData = ms.ToArray(); }
-        else { NewItem.LogoContentType = null; NewItem.LogoData = null; }
         var highest = await _db.GetCollection<Item>(CollectionName).Find(i => i.StoreId == store.Id).SortByDescending(i => i.Position).Limit(1).FirstOrDefaultAsync();
-        NewItem.Position = (highest?.Position ?? 0) + 1; NewItem.CreatedAt = DateTime.UtcNow; NewItem.StoreId = store.Id;
-        if (string.IsNullOrEmpty(NewItem.Category)) NewItem.Category = "General";
+        NewItem.Position = (highest?.Position ?? 0) + 1; NewItem.StoreId = store.Id;
         await _db.GetCollection<Item>(CollectionName).InsertOneAsync(NewItem); return RedirectToPage();
     }
     public async Task<IActionResult> OnPostEdit()
@@ -300,31 +262,27 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         var ex = await col.Find(x => x.Id == EditItem.Id).FirstOrDefaultAsync();
         if (ex == null) return NotFound();
         EditItem.Position = ex.Position; EditItem.CreatedAt = ex.CreatedAt; EditItem.StoreId = ex.StoreId;
-        if (string.IsNullOrEmpty(EditItem.Category)) EditItem.Category = ex.Category;
         if (LogoFile != null && LogoFile.Length > 0) { EditItem.LogoContentType = LogoFile.ContentType; using var ms = new MemoryStream(); await LogoFile.CopyToAsync(ms); EditItem.LogoData = ms.ToArray(); }
         else { EditItem.LogoContentType = ex.LogoContentType; EditItem.LogoData = ex.LogoData; }
         await col.ReplaceOneAsync(x => x.Id == EditItem.Id, EditItem); return RedirectToPage();
     }
     public async Task<IActionResult> OnPostSwapAsync()
     {
-        if (ItemsToSwitch == null || ItemsToSwitch.Length != 2) return RedirectToPage();
+        if (ItemsToSwitch?.Length != 2) return RedirectToPage();
         var col = _db.GetCollection<Item>(CollectionName);
         var sw = await col.Find(Builders<Item>.Filter.In(i => i.Id, ItemsToSwitch)).ToListAsync();
         if (sw.Count != 2) return RedirectToPage();
         (sw[0].Position, sw[1].Position) = (sw[1].Position, sw[0].Position);
-        var ups = new List<WriteModel<Item>> {
+        var ups = new[] {
             new UpdateOneModel<Item>(Builders<Item>.Filter.Eq(i => i.Id, sw[0].Id), Builders<Item>.Update.Set(i => i.Position, sw[0].Position)),
             new UpdateOneModel<Item>(Builders<Item>.Filter.Eq(i => i.Id, sw[1].Id), Builders<Item>.Update.Set(i => i.Position, sw[1].Position))
         };
-        await col.BulkWriteAsync(ups);
-        TempData["success"] = "Items swapped successfully!";
-        return RedirectToPage();
+        await col.BulkWriteAsync(ups); return RedirectToPage();
     }
     public async Task<IActionResult> OnPostReIndex()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var store = await _db.GetCollection<Store>(StoreCollectionName).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
-        if (store == null) return RedirectToPage();
         var col = _db.GetCollection<Item>(CollectionName);
         var all = await col.Find(i => i.StoreId == store.Id).SortBy(i => i.Position).ThenBy(i => i.Id).ToListAsync();
         var b = new List<WriteModel<Item>>(); int p = 1;
@@ -334,10 +292,7 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
     public async Task<IActionResult> OnPostMassDeleteAsync()
     {
         if (string.IsNullOrEmpty(ItemsToDelete)) return RedirectToPage();
-        var ids = ItemsToDelete!.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
-        if (ids.Count == 0) return RedirectToPage();
-        await _db.GetCollection<Item>(CollectionName).DeleteManyAsync(Builders<Item>.Filter.In(i => i.Id, ids));
-        TempData["success"] = $"Deleted {ids.Count} items.";
+        await _db.GetCollection<Item>(CollectionName).DeleteManyAsync(Builders<Item>.Filter.In(i => i.Id, ItemsToDelete.Split(',', StringSplitOptions.RemoveEmptyEntries)));
         return RedirectToPage();
     }
     public async Task<IActionResult> OnPostDelete()
@@ -356,6 +311,7 @@ public class Item
     public string Category { get; set; } = "General";
     public int Quantity { get; set; }
     public decimal Price { get; set; }
+    public decimal CostPrice { get; set; } // Puhunan
     public int Position { get; set; } = 0;
     public byte[]? LogoData { get; set; }
     public string? LogoContentType { get; set; }
@@ -389,17 +345,24 @@ public class ChatMessage
     public string Content { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-// --- NEW: NOTIFICATION MODEL ---
 public class Notification
 {
     [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? Id { get; set; }
     public string StoreId { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
-    public string Type { get; set; } = "info"; // info, cart, order
+    public string Type { get; set; } = "info";
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public bool IsRead { get; set; } = false;
 }
 
-public class CartItemDetail { public string ItemName { get; set; } = string.Empty; public int Quantity { get; set; } public decimal Price { get; set; } public decimal Total => Quantity * Price; }
+// UPDATE: Added Cost property to CartItemDetail for accurate Profit Reporting
+public class CartItemDetail
+{
+    public string ItemName { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal Price { get; set; } // Selling Price
+    public decimal Cost { get; set; } // Cost Price at time of sale
+    public decimal Total => Quantity * Price;
+}
 public class CartItem { public string ItemId { get; set; } = string.Empty; public int Quantity { get; set; } }
-public class SeedItem { public string Name { get; set; } public string Category { get; set; } public decimal Price { get; set; } public int Quantity { get; set; } }
+public class SeedItem { public string Name { get; set; } = ""; public string Category { get; set; } = ""; public decimal Price { get; set; } public decimal Cost { get; set; } public int Quantity { get; set; } }

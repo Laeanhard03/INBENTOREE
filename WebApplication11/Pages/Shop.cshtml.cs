@@ -8,6 +8,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http;
 using System.Text;
+using WebApplication11.Services;
 
 namespace WebApplication11.Pages
 {
@@ -20,6 +21,8 @@ namespace WebApplication11.Pages
         private const string StoreCollectionName = "Stores";
         private const string ChatCollectionName = "Chats";
         private const string NotifCollectionName = "Notifications";
+
+        private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
         public ShopModel(IMongoDatabase db, IConfiguration config)
         {
@@ -38,7 +41,7 @@ namespace WebApplication11.Pages
 
         public List<CartItemDetail> CartItems { get; set; } = new();
         public decimal GrandTotal { get; set; }
-        public Order ReceiptOrder { get; set; }
+        public Order? ReceiptOrder { get; set; }
 
         [BindProperty(SupportsGet = true)]
         public string? StoreId { get; set; }
@@ -51,7 +54,6 @@ namespace WebApplication11.Pages
             StoreInfo = await storeCollection.Find(s => s.Id == StoreId).FirstOrDefaultAsync();
             if (StoreInfo == null) return NotFound("Store not found.");
 
-            // --- NOTIFY SELLER: NEW VISITOR (Throttled by Session) ---
             var session = HttpContext.Session;
             string visitedKey = $"Visited_{StoreId}";
             if (string.IsNullOrEmpty(session.GetString(visitedKey)))
@@ -113,8 +115,6 @@ namespace WebApplication11.Pages
 
             session.SetString("Cart", JsonSerializer.Serialize(cart));
 
-            // --- NOTIFY SELLER: CART ADDITION ---
-            // Fetch item name for better notification
             var item = await _db.GetCollection<Item>(CollectionName).Find(i => i.Id == itemId).FirstOrDefaultAsync();
             if (item != null && !string.IsNullOrEmpty(item.StoreId))
             {
@@ -126,6 +126,7 @@ namespace WebApplication11.Pages
 
         public async Task<IActionResult> OnPostCheckoutAsync()
         {
+            // Update: LoadCartData now populates CostPrice
             await LoadCartData();
             if (CartItems.Count == 0) return RedirectToPage(new { StoreId, view = "shop" });
 
@@ -155,6 +156,7 @@ namespace WebApplication11.Pages
             {
                 StoreId = StoreId!,
                 CustomerName = User.Identity?.Name ?? "Guest",
+                // Items now include the 'Cost' property automatically from LoadCartData
                 Items = CartItems,
                 TotalAmount = GrandTotal,
                 OrderCode = "OR-" + new Random().Next(1000, 9999),
@@ -163,140 +165,8 @@ namespace WebApplication11.Pages
 
             await ordersCollection.InsertOneAsync(newOrder);
             session.Remove("Cart");
-
-            // --- NOTIFY SELLER: ORDER RECEIVED ---
             await CreateNotification(StoreId!, $"New Order {newOrder.OrderCode} received! Total: ₱{GrandTotal:N2}", "order");
-
             return RedirectToPage(new { StoreId, view = "receipt", orderId = newOrder.Id });
-        }
-
-        // --- NEW: Helper for Notifications ---
-        private async Task CreateNotification(string storeId, string msg, string type)
-        {
-            var notif = new Notification
-            {
-                StoreId = storeId,
-                Message = msg,
-                Type = type,
-                IsRead = false,
-                Timestamp = DateTime.UtcNow
-            };
-            await _db.GetCollection<Notification>(NotifCollectionName).InsertOneAsync(notif);
-        }
-
-        // --- CHAT HANDLERS ---
-        public async Task<IActionResult> OnPostSendUserMessageAsync(string storeId, string guestId, string content)
-        {
-            var msg = new ChatMessage
-            {
-                StoreId = storeId,
-                GuestId = guestId,
-                Sender = "User",
-                Content = content,
-                Timestamp = DateTime.UtcNow
-            };
-            await _db.GetCollection<ChatMessage>(ChatCollectionName).InsertOneAsync(msg);
-
-            // Notify seller of new message
-            await CreateNotification(storeId, "New message from customer.", "chat");
-
-            return new JsonResult(new { success = true });
-        }
-
-        public async Task<IActionResult> OnGetCheckMessagesAsync(string storeId, string guestId)
-        {
-            var chats = await _db.GetCollection<ChatMessage>(ChatCollectionName)
-                                 .Find(c => c.StoreId == storeId && c.GuestId == guestId)
-                                 .SortBy(c => c.Timestamp)
-                                 .ToListAsync();
-            return new JsonResult(new { messages = chats });
-        }
-
-        public async Task<IActionResult> OnPostAiChatAsync(string input, string storeId, string guestId)
-        {
-            string systemPrompt = @"You are Sari, a helpful, witty Filipino shop assistant AI. 
-            Analyze the user's message.
-            If the user asks to speak to a human, seller, owner, or has a complaint/refund issue, SET 'handoff': true.
-            Otherwise, answer their question helpfully and SET 'handoff': false.
-            Return ONLY raw JSON in this format: { ""handoff"": boolean, ""reply"": ""string"" }";
-
-            string finalPrompt = $"{systemPrompt}\nUser: {input}";
-
-            string rawAiResponse = await CallGeminiApi(finalPrompt);
-            rawAiResponse = rawAiResponse.Replace("```json", "").Replace("```", "").Trim();
-
-            bool handoff = false;
-            string reply = "Sorry, I didn't quite get that.";
-
-            try
-            {
-                var responseObj = JsonSerializer.Deserialize<AiChatResponse>(rawAiResponse, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (responseObj != null)
-                {
-                    handoff = responseObj.Handoff;
-                    reply = responseObj.Reply;
-                }
-            }
-            catch
-            {
-                reply = "I'm having trouble understanding. Let me connect you to the owner.";
-                handoff = true;
-            }
-
-            if (handoff)
-            {
-                var collection = _db.GetCollection<ChatMessage>(ChatCollectionName);
-                await collection.InsertOneAsync(new ChatMessage
-                {
-                    StoreId = storeId,
-                    GuestId = guestId,
-                    Sender = "User",
-                    Content = input,
-                    Timestamp = DateTime.UtcNow
-                });
-
-                // --- TEXT FIX: Transferring to Seller ---
-                await collection.InsertOneAsync(new ChatMessage
-                {
-                    StoreId = storeId,
-                    GuestId = guestId,
-                    Sender = "Sari (AI)",
-                    Content = reply + " (Transferred to Seller)",
-                    Timestamp = DateTime.UtcNow.AddMilliseconds(500)
-                });
-
-                await CreateNotification(storeId, "Customer requested human assistance.", "chat");
-            }
-
-            return new JsonResult(new { reply = reply, handoff = handoff });
-        }
-
-        private async Task<string> CallGeminiApi(string prompt)
-        {
-            string apiKey = _config["Gemini:ApiKey"];
-            if (string.IsNullOrEmpty(apiKey)) return "{ \"handoff\": false, \"reply\": \"AI Config Error\" }";
-
-            string endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
-            try
-            {
-                using var client = new HttpClient();
-                var requestBody = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
-                var json = JsonSerializer.Serialize(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var response = await client.PostAsync(endpoint, content);
-                var responseString = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode) return "{ \"handoff\": false, \"reply\": \"AI Busy\" }";
-
-                using var doc = JsonDocument.Parse(responseString);
-                if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
-                {
-                    var text = candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
-                    return text ?? "{}";
-                }
-                return "{}";
-            }
-            catch { return "{}"; }
         }
 
         private async Task LoadCartData()
@@ -312,16 +182,111 @@ namespace WebApplication11.Pages
                 var dbItem = await itemsCollection.Find(i => i.Id == c.ItemId).FirstOrDefaultAsync();
                 if (dbItem != null)
                 {
-                    CartItems.Add(new CartItemDetail { ItemName = dbItem.Name, Price = dbItem.Price, Quantity = c.Quantity });
+                    // UPDATE: Map CostPrice from DB to the Cart Item
+                    CartItems.Add(new CartItemDetail
+                    {
+                        ItemName = dbItem.Name,
+                        Price = dbItem.Price,
+                        Cost = dbItem.CostPrice, // SNAPSHOT COST
+                        Quantity = c.Quantity
+                    });
                 }
             }
             GrandTotal = CartItems.Sum(x => x.Total);
         }
 
-        public class AiChatResponse
+        private async Task CreateNotification(string storeId, string msg, string type)
         {
-            public bool Handoff { get; set; }
-            public string Reply { get; set; } = string.Empty;
+            var notif = new Notification
+            {
+                StoreId = storeId,
+                Message = msg,
+                Type = type,
+                IsRead = false,
+                Timestamp = DateTime.UtcNow
+            };
+            await _db.GetCollection<Notification>(NotifCollectionName).InsertOneAsync(notif);
         }
+
+        public async Task<IActionResult> OnPostSendUserMessageAsync(string storeId, string guestId, string content)
+        {
+            var msg = new ChatMessage
+            {
+                StoreId = storeId,
+                GuestId = guestId,
+                Sender = "User",
+                Content = content,
+                Timestamp = DateTime.UtcNow
+            };
+            await _db.GetCollection<ChatMessage>(ChatCollectionName).InsertOneAsync(msg);
+            await CreateNotification(storeId, "New message from customer.", "chat");
+            return new JsonResult(new { success = true });
+        }
+
+        public async Task<IActionResult> OnGetCheckMessagesAsync(string storeId, string guestId)
+        {
+            var chats = await _db.GetCollection<ChatMessage>(ChatCollectionName)
+                                 .Find(c => c.StoreId == storeId && c.GuestId == guestId)
+                                 .SortBy(c => c.Timestamp)
+                                 .ToListAsync();
+            return new JsonResult(new { messages = chats });
+        }
+
+        public async Task<IActionResult> OnPostAiChatAsync(string input, string storeId, string guestId)
+        {
+            string systemPrompt = "You are Sari, a helpful store assistant. Return ONLY raw JSON: { \"handoff\": boolean, \"reply\": \"string\" }";
+            string finalPrompt = $"{systemPrompt}\nUser: {input}";
+            string rawAiResponse = await CallGeminiApi(finalPrompt);
+            rawAiResponse = rawAiResponse.Replace("```json", "").Replace("```", "").Trim();
+
+            bool handoff = false;
+            string reply = "Sorry, I didn't quite get that.";
+
+            try
+            {
+                var responseObj = JsonSerializer.Deserialize<AiChatResponse>(rawAiResponse, _jsonOptions);
+                if (responseObj != null)
+                {
+                    handoff = responseObj.Handoff;
+                    reply = responseObj.Reply;
+                }
+            }
+            catch { reply = "Connecting you to the seller..."; handoff = true; }
+
+            if (handoff)
+            {
+                var collection = _db.GetCollection<ChatMessage>(ChatCollectionName);
+                await collection.InsertOneAsync(new ChatMessage { StoreId = storeId, GuestId = guestId, Sender = "User", Content = input, Timestamp = DateTime.UtcNow });
+                await collection.InsertOneAsync(new ChatMessage { StoreId = storeId, GuestId = guestId, Sender = "Sari (AI)", Content = reply, Timestamp = DateTime.UtcNow.AddMilliseconds(500) });
+                await CreateNotification(storeId, "Customer requested human assistance.", "chat");
+            }
+            return new JsonResult(new { reply = reply, handoff = handoff });
+        }
+
+        private async Task<string> CallGeminiApi(string prompt)
+        {
+            string apiKey = EncryptionHelper.Decrypt(_config["Gemini:ApiKey"] ?? string.Empty);
+            if (string.IsNullOrEmpty(apiKey)) return "{}";
+
+            string endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
+            try
+            {
+                using var client = new HttpClient();
+                var requestBody = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await client.PostAsync(endpoint, content);
+                var responseString = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(responseString);
+                if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+                {
+                    return candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "{}";
+                }
+                return "{}";
+            }
+            catch { return "{}"; }
+        }
+
+        public class AiChatResponse { public bool Handoff { get; set; } public string Reply { get; set; } = string.Empty; }
     }
 }

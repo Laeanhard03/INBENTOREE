@@ -101,19 +101,20 @@
 
             <div asp-validation-summary="ModelOnly" class="text-red-600 text-sm mb-4"></div>
 
-            @* --- NEW: Role Selection --- *@
+            @* --- NEW: Role Selection (FIXED) --- *@
             <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <label class="block text-gray-700 text-sm font-bold mb-2">I want to...</label>
                 <div class="flex gap-4">
-                    <label class="flex items-center cursor-pointer">
-                        <input type="radio" asp-for="RegisterInput.Role" value="Seller" class="form-radio text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked />
+                    <label class="flex items-center cursor-pointer" for="role_seller">
+                        <input type="radio" asp-for="RegisterInput.Role" value="Seller" id="role_seller" class="form-radio text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked />
                         <span class="ml-2 text-sm text-gray-700 font-medium">Sell Items (Open Store)</span>
                     </label>
-                    <label class="flex items-center cursor-pointer">
-                        <input type="radio" asp-for="RegisterInput.Role" value="Customer" class="form-radio text-green-600 focus:ring-green-500 h-4 w-4" />
+                    <label class="flex items-center cursor-pointer" for="role_customer">
+                        <input type="radio" asp-for="RegisterInput.Role" value="Customer" id="role_customer" class="form-radio text-green-600 focus:ring-green-500 h-4 w-4" />
                         <span class="ml-2 text-sm text-gray-700 font-medium">Buy Items (Customer)</span>
                     </label>
                 </div>
+                <span asp-validation-for="RegisterInput.Role" class="text-red-600 text-xs"></span>
             </div>
 
             <div class="mb-4">
@@ -245,6 +246,7 @@
         };
         // Initialize
         firebase.initializeApp(firebaseConfig);
+
         document.addEventListener('DOMContentLoaded', function() {
                 // --- Setup password toggles ---
                 setupPasswordToggles();
@@ -319,6 +321,7 @@
                              throw new Error(`Server returned status: ${response.status}`);
                         }
                         const result = await response.json();
+
                         if (result.success) {
                             window.location.href = result.redirectUrl;
                         } else {
@@ -348,7 +351,7 @@
                         if (response.ok && result.success) {
                             window.location.href = result.redirectUrl;
                         } else {
-                             if (result.needsVerification) {
+                            if (result.needsVerification) {
                                 verifyEmailInput.value = result.email;
                                 verificationEmailDisplay.textContent = result.email;
                                 showForm('verifyCodeForm');
@@ -445,6 +448,7 @@
                             headers: { 'X-Request-Verification-Token': token }
                         });
                         const result = await response.json();
+
                         if (response.ok && result.success) {
                             showMessage('A new code has been sent to your email.', 'success');
                         } else {
