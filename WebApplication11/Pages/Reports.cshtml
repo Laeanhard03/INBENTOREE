@@ -4,7 +4,6 @@
     ViewData["Title"] = "Business Analytics";
 }
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -31,8 +30,9 @@
         margin: 0 auto;
         background-color: white;
         padding: 30px !important;
-        height: auto !important; /* ADDED: Allows full height expansion */
-        overflow: visible !important; /* ADDED: Ensure no clipping */
+        height: auto !important; /* CRITICAL: Allows full height expansion */
+        overflow: visible !important;
+        /* CRITICAL: Ensure no clipping */
     }
 
         /* Force Vertical Stacking in PDF to prevent cutoff */
@@ -85,11 +85,27 @@
         .chart-toggle:hover {
             color: #4f46e5;
         }
+
+    /* NEW: AI Report Styles */
+    .ai-report-box {
+        background: #f0f4ff;
+        /* Light indigo background */
+        border: 2px solid #6366f1;
+        /* Indigo border */
+        border-radius: 1rem;
+        padding: 1.5rem;
+        page-break-inside: avoid;
+    }
+
+    .ai-report-title {
+        color: #3730a3;
+        /* Darker indigo for emphasis */
+    }
 </style>
 
 <div class="space-y-6">
 
-    @* --- TOP HEADER (Excluded from PDF) --- *@
+    @* --- TOP HEADER (Excluded from Print/Capture) --- *@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100" data-html2canvas-ignore="true">
         <div>
             <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Business Insights</h1>
@@ -100,31 +116,33 @@
                 }
                 else
                 {
-
                     <span class="text-orange-500">No analysis data yet.</span>
                 }
             </p>
         </div>
         <div class="mt-4 md:mt-0 flex flex-col md:flex-row gap-3 items-center">
             <form method="post" asp-page-handler="Analyze"><button type="submit" class="group relative inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-white transition-all duration-200 bg-indigo-600 rounded-full focus:outline-none hover:bg-indigo-700 shadow-md"><span>Re-Analyze (AI)</span></button></form>
-            <button onclick="downloadPdf()"
-                    class="group relative inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-700 transition-all duration-200 bg-white border-2 border-gray-200 rounded-full hover:bg-gray-50 hover:text-indigo-600 shadow-sm">
-                <span>Download Report</span>
-            </button>
-            <form method="post" asp-page-handler="SeedHistory" onsubmit="return confirm('Generate random data?
-                This creates 90 days of history.');">
+
+            @* CHANGED: DOWNLOAD FORM TARGETING CSV HANDLER *@
+            <form method="post" asp-page-handler="DownloadReport">
+                <button type="submit"
+                        class="group relative inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-700 transition-all duration-200 bg-white border-2 border-gray-200 rounded-full hover:bg-gray-50 hover:text-indigo-600 shadow-sm">
+                    <span>Download CSV Report</span>
+                </button>
+            </form>
+
+            <form method="post" asp-page-handler="SeedHistory" onsubmit="return confirm('Generate random data? This creates 90 days of history.');">
                 <button type="submit" class="text-gray-500 hover:text-gray-700 text-sm font-medium underline ml-2">🎲 Gen Data</button>
             </form>
         </div>
     </div>
 
-    @* --- REPORT CONTENT (Captures for PDF) --- *@
+    @* --- REPORT CONTENT (Captures for PDF/Print) --- *@
     <div id="report-content" class="p-2 md:p-4 pdf-bg-white space-y-6">
 
         @* Title Header *@
         <div class="border-b-2 border-indigo-900 pb-4">
             <div class="flex justify-between items-end">
-
                 <div><h1 class="text-4xl font-extrabold text-gray-900">Performance Report</h1><p class="text-gray-500 mt-1">Generated: @DateTime.Now.ToString("MMMM dd, yyyy")</p></div>
                 <div class="text-right"><h2 class="text-xl font-bold text-indigo-700">Sari-Sari Store</h2></div>
             </div>
@@ -194,8 +212,7 @@
                     <h3 class="font-bold text-gray-800 mb-4">🏆 Top Performers</h3>
                     <table class="w-full text-sm text-left">
                         <thead class="text-xs text-gray-400 uppercase bg-white border-b"><tr><th class="py-2">Product</th><th class="py-2 w-1/3">Performance</th><th class="py-2 text-right">Revenue</th></tr></thead>
-                        <tbody class="divide-y
-                            divide-gray-50">
+                        <tbody class="divide-y divide-gray-50">
                             @foreach (var item in Model.TopSellingItems)
                             {
                                 var max = Model.TopSellingItems.Max(x => x.QuantitySold);
@@ -250,9 +267,50 @@
             </div>
         </div>
 
-        @* --- PDF APPENDIX --- *@
+        @* --- PDF APPENDIX: DETAILED SUMMARY TABLES & AI REPORT (Hidden on screen) --- *@
         <div id="pdf-appendix">
-            <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Detailed Period Analysis</h2>
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Detailed Report Summary</h2>
+
+            {{-- NEW: SARI AI ANALYSIS REPORT --}}
+            <div class="ai-report-box mb-8">
+                <h3 class="text-xl font-black ai-report-title mb-4 flex items-center gap-2">
+                    <span class="text-3xl">✨</span> Sari's Intelligent Analysis
+                </h3>
+
+                <p class="text-sm text-gray-700 mb-4">
+                    This section provides predictive modeling and actionable advice generated by the Sari AI engine, based on your store's recent sales data.
+                    @if (Model.LastAnalysisDate.HasValue)
+                    {
+                        <span class="font-bold text-indigo-700 block mt-1">Last Analysis Run: @Model.LastAnalysisDate.Value.ToLocalTime().ToString("MMMM dd, yyyy, hh:mm tt")</span>
+                    }
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="p-4 bg-white rounded-lg shadow-sm border border-indigo-200">
+                        <p class="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">7-Day Revenue Forecast</p>
+                        <h4 class="text-2xl font-extrabold text-indigo-900 price-display" data-price-php="@Model.ForecastedRevenue">₱@Model.ForecastedRevenue.ToString("N2")</h4>
+                    </div>
+                    <div class="p-4 bg-white rounded-lg shadow-sm border border-purple-200 md:col-span-2">
+                        <p class="text-xs font-bold text-purple-500 uppercase tracking-wider mb-1">Key Event/Holiday Prediction</p>
+                        <p class="text-sm text-gray-800 leading-relaxed">@Model.HolidayPrediction</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 border-t border-indigo-200 pt-6">
+                    <h4 class="text-lg font-bold text-indigo-700 mb-3">Recommended Action Plan</h4>
+                    <ul class="space-y-2">
+                        @foreach (var tip in Model.ActionableTips)
+                        {
+                            <li class="flex items-start gap-2 text-sm text-gray-700">
+                                <span class="text-green-600 font-bold flex-shrink-0">✓</span>
+                                <span>@tip</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Historical Sales Breakdown</h2>
 
             <div class="grid grid-cols-2 gap-8">
                 <div class="bg-gray-50 p-4 rounded-xl">
@@ -272,6 +330,7 @@
                     <h3 class="font-bold text-gray-700 mb-4">Quarterly Performance</h3>
                     <table class="w-full text-xs text-left">
                         <thead class="uppercase text-gray-400 font-bold border-b"><tr><th class="py-2">Quarter</th><th class="py-2 text-right">Revenue</th></tr></thead>
+
 
                         <tbody>
                             @foreach (var q in Model.QuarterlyStats)
@@ -366,39 +425,5 @@
         categoryChart.data.labels = catDataStore[mode].labels;
         categoryChart.data.datasets[0].data = catDataStore[mode].data;
         categoryChart.update();
-    }
-
-    function downloadPdf() {
-        const element = document.getElementById('report-content');
-
-        // 1. Enter PDF Mode (Apply Styles)
-        element.classList.add('show-in-pdf');
-        element.classList.add('pdf-mode');
-
-        // CRITICAL FIX: Calculate full content height
-        // This tells the printer exactly how long the page is, preventing the "cut off" effect.
-        const totalHeight = element.scrollHeight + 50;
-
-        const opt = {
-            margin: [0.3, 0.3, 0.3, 0.3], // Top, Left, Bottom, Right (Inches)
-            filename: `Sari_Report_${new Date().toISOString().split('T')[0]}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                scrollY: 0,
-                windowWidth: 800,       // Matches CSS width
-                windowHeight: totalHeight // CRITICAL: Forces capture of full height
-            },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-            // CHANGE THIS: Remove 'avoid-all' to let it flow naturally to page 2, 3, etc.
-            pagebreak: { mode: ['css', 'legacy'] }
-        };
-
-        html2pdf().set(opt).from(element).save().then(() => {
-            // 2. Exit PDF Mode
-            element.classList.remove('show-in-pdf');
-            element.classList.remove('pdf-mode');
-        });
     }
 </script>

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MongoDB.Driver;
 using System.Text.Json;
@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Text;
 using System.Security.Claims;
 using WebApplication11.Services;
+using System.IO; // <--- ADDED: Required for File result
 
 namespace WebApplication11.Pages
 {
@@ -104,7 +105,81 @@ namespace WebApplication11.Pages
             }
         }
 
-        // --- NEW: SALES CHART LOGIC (Daily, Monthly, Quarterly) ---
+        // <--- NEW HANDLER FOR DIRECT DOWNLOAD --->
+        public async Task<IActionResult> OnPostDownloadReportAsync()
+        {
+            // Ensure all data is loaded before generating the file content
+            await OnGetAsync();
+
+            var content = new StringBuilder();
+            content.AppendLine("Sari-Sari Store Performance Report");
+            content.AppendLine($"Generated: {DateTime.Now.ToString("MMMM dd, yyyy")}");
+            content.AppendLine($"Last Analysis: {LastAnalysisDate?.ToLocalTime().ToString("MMMM dd, hh:mm tt") ?? "N/A"}");
+            content.AppendLine();
+            content.AppendLine("--- KEY PERFORMANCE INDICATORS ---");
+            content.AppendLine($"Total Revenue,₱{TotalRevenue:N2}");
+            content.AppendLine($"Net Profit,₱{TotalProfit:N2}");
+            content.AppendLine($"AI Forecast (7 Days),₱{ForecastedRevenue:N2}");
+            content.AppendLine($"Restock Needed,{LowStockItems.Count}");
+            content.AppendLine();
+
+            // AI Analysis (Text)
+            content.AppendLine("--- SARI'S INTELLIGENT ANALYSIS ---");
+            content.AppendLine("Key Event/Holiday Prediction:");
+            content.AppendLine(HolidayPrediction);
+            content.AppendLine("Recommended Action Plan:");
+            foreach (var tip in ActionableTips)
+            {
+                content.AppendLine($"- {tip}");
+            }
+            content.AppendLine();
+
+            // Top Selling Items Table
+            content.AppendLine("--- TOP PERFORMERS (Quantity Sold) ---");
+            content.AppendLine("Product,Quantity Sold,Total Revenue");
+            foreach (var item in TopSellingItems)
+            {
+                content.AppendLine($"{item.Name},{item.QuantitySold},₱{item.TotalRevenue:N0}");
+            }
+            content.AppendLine();
+
+            // Slow Moving Items Table
+            content.AppendLine("--- SLOW MOVING ITEMS (Over 10 stock, 0 recent sales) ---");
+            content.AppendLine("Item,Current Stock");
+            foreach (var item in SlowMovingItems)
+            {
+                content.AppendLine($"{item.Name},{item.Quantity}");
+            }
+            content.AppendLine();
+
+
+            // Monthly Stats Table (from Appendix)
+            content.AppendLine("--- MONTHLY PERFORMANCE (Last 12 Months) ---");
+            content.AppendLine("Month,Revenue");
+            foreach (var m in MonthlyStats)
+            {
+                content.AppendLine($"{m.Label},₱{m.Total:N2}");
+            }
+            content.AppendLine();
+
+            // Quarterly Stats Table (from Appendix)
+            content.AppendLine("--- QUARTERLY PERFORMANCE (Last 8 Quarters) ---");
+            content.AppendLine("Quarter,Revenue");
+            foreach (var q in QuarterlyStats)
+            {
+                content.AppendLine($"{q.Label},₱{q.Total:N2}");
+            }
+
+            var fileName = $"Sari_Report_{DateTime.Now.ToString("yyyyMMdd")}.csv";
+            var fileBytes = Encoding.UTF8.GetBytes(content.ToString());
+
+            // Return the file for direct download
+            return File(fileBytes, "text/csv", fileName);
+        }
+        // <--- END NEW HANDLER --->
+
+
+        // --- EXISTING HELPER METHODS (PrepareSalesCharts, PrepareCategoryCharts, PrepareTopSellers, etc.) ---
         private void PrepareSalesCharts(List<Order> orders)
         {
             // 1. Daily (Last 7 Days)
@@ -131,7 +206,6 @@ namespace WebApplication11.Pages
             QuarterlyStats = quarterlyGroups; // For PDF Table
         }
 
-        // --- NEW: CATEGORY CHART LOGIC (All Time, Monthly, Quarterly) ---
         private void PrepareCategoryCharts(List<Item> items, List<Order> orders)
         {
             var catMap = items.ToDictionary(i => i.Name, i => i.Category);
