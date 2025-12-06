@@ -17,16 +17,18 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using WebApplication11.Services;
+using WebApplication11.Services; // Linked to Program.cs
 
 namespace WebApplication11.Pages;
 
 [Authorize]
-public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfiguration config) : PageModel
+public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfiguration config, SariService sari) : PageModel
 {
     private readonly IMongoDatabase _db = db;
     private readonly ILogger<DashModel> _logger = logger;
     private readonly IConfiguration _config = config;
+    private readonly SariService _sari = sari; // INJECTED SARI SERVICE
+
     private const string CollectionName = "Items";
     private const string StoreCollectionName = "Stores";
     private const string ChatCollectionName = "Chats";
@@ -70,6 +72,92 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
                              .ToListAsync();
     }
 
+    // --- 1. NEW: CHAT LIST LOGIC (Sidebar) ---
+    public async Task<IActionResult> OnGetFetchConversationsAsync()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var store = await _db.GetCollection<Store>(StoreCollectionName).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
+        if (store == null) return new JsonResult(new { conversations = new List<object>() });
+
+        // Group messages by GuestId to create a contact list
+        var collection = _db.GetCollection<ChatMessage>(ChatCollectionName);
+        var pipeline = collection.Aggregate()
+            .Match(c => c.StoreId == store.Id)
+            .SortByDescending(c => c.Timestamp)
+            .Group(
+                c => c.GuestId,
+                g => new {
+                    GuestId = g.Key,
+                    LastMessage = g.First().Content,
+                    Time = g.First().Timestamp
+                }
+            )
+            .SortByDescending(x => x.Time);
+
+        var convos = await pipeline.ToListAsync();
+        return new JsonResult(new { conversations = convos });
+    }
+
+    public async Task<IActionResult> OnGetFetchGuestMessagesAsync(string guestId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var store = await _db.GetCollection<Store>(StoreCollectionName).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
+        if (store == null) return new JsonResult(new { messages = new List<object>() });
+
+        var chats = await _db.GetCollection<ChatMessage>(ChatCollectionName)
+                             .Find(c => c.StoreId == store.Id && c.GuestId == guestId)
+                             .SortBy(c => c.Timestamp)
+                             .ToListAsync();
+
+        return new JsonResult(new { messages = chats });
+    }
+
+    // --- 2. CENTRALIZED SARI AI CALL ---
+    private async Task<string> CallSariAi(string prompt)
+    {
+        var keys = _sari.GetDecryptedKeys(); // Get key pool
+        string baseUrl = _sari.GetFullApiUrl(); // Get Service URL
+
+        using var client = new HttpClient();
+        var content = new StringContent(
+            JsonSerializer.Serialize(new { contents = new[] { new { parts = new[] { new { text = prompt } } } } }),
+            Encoding.UTF8,
+            "application/json"
+        );
+
+        // ROTATION LOGIC
+        foreach (var key in keys)
+        {
+            try
+            {
+                var response = await client.PostAsync($"{baseUrl}?key={key}", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonStr = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(jsonStr);
+                    if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+                    {
+                        return candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "";
+                    }
+                }
+            }
+            catch { continue; }
+        }
+
+        return "AI Busy: Unable to connect to Sari.";
+    }
+
+    // --- 3. DIAGNOSTICS & INSIGHTS ---
+    public async Task<IActionResult> OnGetTestAiModelAsync()
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        string reply = await CallSariAi("Respond with 'Connected' if you can hear me.");
+        stopwatch.Stop();
+        bool success = !reply.StartsWith("AI Busy");
+        return new JsonResult(new { success = success, message = reply, time = stopwatch.ElapsedMilliseconds });
+    }
+
     public async Task<IActionResult> OnGetAiInsightAsync(string mode, string input = "")
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -77,8 +165,8 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         var items = await _db.GetCollection<Item>(CollectionName).Find(i => i.StoreId == store.Id).ToListAsync();
 
         var inventorySummary = string.Join("\n", items.Select(i => $"- {i.Name} ({i.Category}): {i.Quantity} units @ SRP: ${i.Price} / Cost: ${i.CostPrice}"));
-
         string prompt = "";
+
         switch (mode)
         {
             case "categorize":
@@ -98,12 +186,15 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
                 break;
         }
 
-        string aiResponse = await CallGeminiApi(prompt);
+        string aiResponse = await CallSariAi(prompt);
         if (mode == "categorize") aiResponse = aiResponse.Replace("\"", "").Replace(".", "").Trim();
 
         return new JsonResult(new { message = aiResponse });
     }
 
+    // --- 4. STANDARD HANDLERS ---
+
+    // Kept for backward compatibility if needed, but sidebar uses FetchConversations
     public async Task<IActionResult> OnGetFetchMessagesAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -113,6 +204,7 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         var chats = await _db.GetCollection<ChatMessage>(ChatCollectionName)
                              .Find(c => c.StoreId == store.Id)
                              .SortBy(c => c.Timestamp)
+                             .Limit(1) // Only fetch one to check for badge
                              .ToListAsync();
 
         return new JsonResult(new { messages = chats });
@@ -176,8 +268,10 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
 
         try
         {
-            string prompt = "Generate a JSON list of 5 Filipino Sari-Sari store items. Fields: Name, Category, Price, Cost, Quantity.";
-            string jsonResponse = await CallGeminiApi(prompt);
+            string prompt = "Generate a JSON list of 5 Filipino Sari-Sari store items. Fields: Name, Category, Price, Cost, Quantity. Return ONLY JSON.";
+            string jsonResponse = await CallSariAi(prompt);
+            jsonResponse = jsonResponse.Replace("```json", "").Replace("```", "").Trim();
+
             int start = jsonResponse.IndexOf('[');
             int end = jsonResponse.LastIndexOf(']');
             if (start >= 0 && end > start)
@@ -210,30 +304,6 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
 
         if (newItems.Count > 0) await _db.GetCollection<Item>(CollectionName).InsertManyAsync(newItems);
         return RedirectToPage();
-    }
-
-    private async Task<string> CallGeminiApi(string prompt)
-    {
-        string apiKey = EncryptionHelper.Decrypt(_config["Gemini:ApiKey"] ?? string.Empty);
-        if (string.IsNullOrEmpty(apiKey)) return "AI Error: Missing API Key";
-
-        string endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
-        try
-        {
-            using var client = new HttpClient();
-            var requestBody = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(endpoint, content);
-            var responseString = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(responseString);
-            if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
-            {
-                return candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "";
-            }
-            return "";
-        }
-        catch { return ""; }
     }
 
     public async Task<IActionResult> OnPostUpdateStoreAsync()
@@ -301,68 +371,3 @@ public class DashModel(IMongoDatabase db, ILogger<DashModel> logger, IConfigurat
         await _db.GetCollection<Item>(CollectionName).DeleteOneAsync(x => x.Id == DeleteId); return RedirectToPage();
     }
 }
-
-// --- SHARED MODELS ---
-public class Item
-{
-    [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? Id { get; set; }
-    [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? StoreId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Category { get; set; } = "General";
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
-    public decimal CostPrice { get; set; } // Puhunan
-    public int Position { get; set; } = 0;
-    public byte[]? LogoData { get; set; }
-    public string? LogoContentType { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-public class Store
-{
-    [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? Id { get; set; }
-    public string OwnerId { get; set; } = string.Empty;
-    public string StoreName { get; set; } = "My Sari-Sari Store";
-    public string Description { get; set; } = "Welcome to my online tindahan!";
-    public string ThemeColor { get; set; } = "#4f46e5";
-}
-public class Order
-{
-    [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? Id { get; set; }
-    public string StoreId { get; set; } = string.Empty;
-    public string CustomerName { get; set; } = string.Empty;
-    public List<CartItemDetail> Items { get; set; } = new();
-    public decimal TotalAmount { get; set; }
-    public DateTime OrderDate { get; set; } = DateTime.UtcNow;
-    public string Status { get; set; } = "Pending";
-    public string OrderCode { get; set; } = string.Empty;
-}
-public class ChatMessage
-{
-    [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? Id { get; set; }
-    public string StoreId { get; set; } = string.Empty;
-    public string GuestId { get; set; } = string.Empty;
-    public string Sender { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-}
-public class Notification
-{
-    [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? Id { get; set; }
-    public string StoreId { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public string Type { get; set; } = "info";
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    public bool IsRead { get; set; } = false;
-}
-
-// UPDATE: Added Cost property to CartItemDetail for accurate Profit Reporting
-public class CartItemDetail
-{
-    public string ItemName { get; set; } = string.Empty;
-    public int Quantity { get; set; }
-    public decimal Price { get; set; } // Selling Price
-    public decimal Cost { get; set; } // Cost Price at time of sale
-    public decimal Total => Quantity * Price;
-}
-public class CartItem { public string ItemId { get; set; } = string.Empty; public int Quantity { get; set; } }
-public class SeedItem { public string Name { get; set; } = ""; public string Category { get; set; } = ""; public decimal Price { get; set; } public decimal Cost { get; set; } public int Quantity { get; set; } }

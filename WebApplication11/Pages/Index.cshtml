@@ -5,7 +5,7 @@
 }
 @Html.AntiForgeryToken()
 <style>
-    /* MODIFIED: Hide register AND verify forms by default */
+    /* Hide register AND verify forms by default */
     #registerForm, #verifyCodeForm {
         display: none;
     }
@@ -13,12 +13,12 @@
     #globalMessage {
         display: none;
     }
-    /* NEW: Style for the resend button */
+    /* Style for the resend button */
     #resendCodeBtn {
         background: none;
         border: none;
         padding: 0;
-        font-size: 0.875rem; /* text-sm */
+        font-size: 0.875rem;
         color: #4f46e5;
         cursor: pointer;
     }
@@ -101,7 +101,7 @@
 
             <div asp-validation-summary="ModelOnly" class="text-red-600 text-sm mb-4"></div>
 
-            @* --- NEW: Role Selection (FIXED) --- *@
+            @* --- Role Selection --- *@
             <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <label class="block text-gray-700 text-sm font-bold mb-2">I want to...</label>
                 <div class="flex gap-4">
@@ -321,7 +321,6 @@
                              throw new Error(`Server returned status: ${response.status}`);
                         }
                         const result = await response.json();
-
                         if (result.success) {
                             window.location.href = result.redirectUrl;
                         } else {
@@ -448,7 +447,6 @@
                             headers: { 'X-Request-Verification-Token': token }
                         });
                         const result = await response.json();
-
                         if (response.ok && result.success) {
                             showMessage('A new code has been sent to your email.', 'success');
                         } else {
@@ -489,7 +487,7 @@
                             const eyeSlashIcon = this.querySelector('.eye-slash-icon');
 
                              if (input.type === 'password') {
-                                input.type = 'text';
+                                 input.type = 'text';
                                 eyeIcon.classList.add('hidden');
                                 eyeSlashIcon.classList.remove('hidden');
                             } else {

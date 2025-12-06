@@ -1,9 +1,21 @@
 ﻿@page
 @model WebApplication11.Pages.DashModel
 @using WebApplication11.Pages
-@using System
 @{
-    ViewData["Title"] = "Inventory Management";
+    ViewData["Title"] = "Inventory Command Center";
+    // --- 1. COCKPIT STATS LOGIC ---
+    var totalItems = Model.Items.Count;
+    var lowStockCount = Model.Items.Count(i => i.Quantity <= 5);
+    var totalInventoryValue = Model.Items.Sum(i => i.Price * i.Quantity);
+    var totalPotentialProfit = Model.Items.Sum(i => (i.Price - i.CostPrice) * i.Quantity);
+    // --- 2. GREETING LOGIC ---
+    var hour = DateTime.Now.Hour;
+    string greeting;
+    if (hour < 12) greeting = "Magandang Umaga";
+    else if (hour < 18) greeting = "Magandang Hapon";
+    else greeting = "Magandang Gabi";
+
+    // --- 3. ICON DATA (Existing) ---
     var iconDataList = new[] {
         new { Color = "text-indigo-600", BgColor = "bg-indigo-100", Path = "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3.8 6h16.4M15 10a3 3 0 1 1-6 0" },
         new { Color = "text-green-600", BgColor = "bg-green-100", Path = "M12 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6m-4 4h4a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8" },
@@ -14,92 +26,131 @@
     var index = 0;
 }
 
+@Html.AntiForgeryToken()
+
 <div class="flex flex-col space-y-6">
 
-    @* --- TOP BAR --- *@
-    <div class="flex justify-between items-center relative">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">@Model.CurrentStore.StoreName</h1>
-            <p class="text-sm text-gray-500">Manage your stock, products, and store appearance.</p>
+    @* --- BUSINESS COCKPIT SECTION --- *@
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        @* Top Row: Greeting & Actions *@
+        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8">
+            <div>
+                <h1 class="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    @greeting, @User.Identity?.Name!
+                    <span class="text-2xl animate-wave">👋</span>
+                </h1>
+                <p class="text-gray-500 mt-1">
+                    Overview for <span class="font-bold text-indigo-600">@Model.CurrentStore.StoreName</span>
+                </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                @* --- MESSAGES BUTTON --- *@
+                <button onclick="openInboxModal()" class="relative p-2.5 bg-white rounded-xl hover:bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 transition" title="Messages">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    <span id="msgBadge" class="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full hidden border-2 border-white"></span>
+                </button>
+
+                @* --- NOTIFICATIONS BUTTON --- *@
+                <div class="relative">
+                    <button onclick="toggleNotifications(event)" id="notifBtn" class="relative p-2.5 bg-white rounded-xl hover:bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 transition" title="Notifications">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        <span id="notifBadge" class="absolute top-0 right-0 h-3 w-3 bg-indigo-500 rounded-full hidden border-2 border-white"></span>
+                    </button>
+                    <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 rounded-xl shadow-2xl bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-hidden">
+                        <div class="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+                            <span class="text-sm font-bold text-gray-700">Notifications</span>
+                            <button onclick="clearNotifications()" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Mark all read</button>
+                        </div>
+                        <div id="notifList" class="max-h-64 overflow-y-auto p-0">
+                            <div class="p-4 text-center text-xs text-gray-400">No new notifications</div>
+                        </div>
+                    </div>
+                </div>
+
+                @* --- SARI AI MENU --- *@
+                <div class="relative">
+                    <button onclick="toggleSariMenu(event)" id="sariMenuBtn" type="button" class="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 hover:shadow-lg transition active:scale-95">
+                        <span class="font-bold text-sm">✨ Ask Sari</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div id="sariDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-40 overflow-hidden">
+                        <div class="py-1">
+                            <button onclick="askSari('summary')" class="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 transition">📋 Inventory Summary</button>
+                            <button onclick="askSari('restock')" class="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 transition">📉 Restock Suggestions</button>
+                            <button onclick="askSari('design')" class="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 transition">🎨 Store Design Tips</button>
+                            <button onclick="askSari('joke')" class="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 transition">😄 Tell me a Joke</button>
+                        </div>
+                    </div>
+                </div>
+
+                @* --- QUICK ADD ITEM --- *@
+                <button onclick="openCreateModal()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md hover:bg-indigo-700 transition flex items-center gap-2 active:scale-95">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span class="hidden sm:inline">Add Item</span>
+                </button>
+
+                @* --- MENU OPTIONS (Existing) --- *@
+                <div class="relative">
+                    <button onclick="toggleMenuOptions(event)" id="openMenuBtn" class="p-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition shadow-sm">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                    </button>
+                    <div id="menuOptionsModal" class="hidden absolute right-0 top-full mt-2 w-64 rounded-xl shadow-2xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-40 overflow-hidden">
+                        <div class="py-1">
+                            <button onclick="openStoreSettings()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3 transition">
+                                <svg class="w-5 h-5 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                                <span>Store Settings</span>
+                            </button>
+                            <a href="/Shop?StoreId=@Model.CurrentStore.Id" target="_blank" class="w-full text-left px-4 py-3 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-50 flex items-center space-x-3 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                <span>View Storefront</span>
+                            </a>
+                            <button onclick="openAiTester()" class="w-full text-left px-4 py-3 text-sm text-indigo-700 hover:bg-indigo-50 flex items-center space-x-3 transition">
+                                <span class="text-xl">📡</span>
+                                <span>AI Diagnostics</span>
+                            </button>
+                            <button id="selectMoreToggle" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3 border-t border-gray-100 transition">
+                                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
+                                <span>Select Multiple</span>
+                            </button>
+                            <form method="post" asp-page-handler="SeedInventory" class="border-t border-gray-100 bg-gray-50">
+                                <button type="submit" class="w-full text-left px-4 py-3 text-xs font-bold text-gray-500 hover:bg-gray-200 flex items-center space-x-3 uppercase tracking-wider">
+                                    <span>🎲 Dev: Populate</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="flex items-center space-x-3">
-            @* --- MESSAGES BUTTON --- *@
-            <button onclick="openInboxModal()" class="relative p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm transition border border-gray-200" title="Messages">
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                <span id="msgBadge" class="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full hidden border-2 border-white"></span>
-            </button>
-
-            @* --- NOTIFICATIONS BUTTON --- *@
-            <div class="relative">
-                <button onclick="toggleNotifications(event)" id="notifBtn" class="relative p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm transition border border-gray-200" title="Notifications">
-                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                    <span id="notifBadge" class="absolute top-0 right-0 h-3 w-3 bg-indigo-500 rounded-full hidden border-2 border-white"></span>
-                </button>
-                <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-hidden">
-                    <div class="px-4 py-2 bg-gray-50 border-b flex justify-between items-center">
-                        <span class="text-sm font-bold text-gray-700">Notifications</span>
-                        <button onclick="clearNotifications()" class="text-xs text-indigo-600 hover:text-indigo-800">Clear All</button>
-                    </div>
-                    <div id="notifList" class="max-h-64 overflow-y-auto p-0">
-                        <div class="p-4 text-center text-xs text-gray-400">No new notifications</div>
-                    </div>
+        @* --- LIVE STATS GRID --- *@
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-indigo-100 relative overflow-hidden group hover:shadow-md transition">
+                <div class="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition duration-500">
+                    <svg class="w-24 h-24 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4s0 0 0 0zm2 0h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4a2 2 0 012-2z"></path></svg>
                 </div>
+                <p class="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">Total Inventory Value</p>
+                <h3 class="text-3xl font-black text-indigo-900 price-display" data-price-php="@totalInventoryValue">₱@totalInventoryValue.ToString("N2")</h3>
+                <p class="text-xs text-indigo-400 mt-2 font-medium">Assets on hand</p>
             </div>
 
-            @* --- SARI AI MENU --- *@
-            <div class="relative inline-block text-left">
-                <button onclick="toggleSariMenu(event)" id="sariMenuBtn" type="button" class="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 hover:scale-105 transition active:scale-95">
-                    <span class="hidden sm:inline font-medium">✨ Ask Sari</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                </button>
-                <div id="sariDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-40">
-                    <div class="py-1">
-                        <button onclick="askSari('summary')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">📋 Inventory Summary</button>
-                        <button onclick="askSari('restock')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">📉 Restock Suggestions</button>
-                        <button onclick="askSari('design')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">🎨 Store Design Tips</button>
-                        <button onclick="askSari('joke')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">😄 Tell me a Joke</button>
-                    </div>
+            <div class="p-6 rounded-2xl bg-gradient-to-br from-orange-50 to-red-50 border border-orange-100 relative overflow-hidden group hover:shadow-md transition">
+                <div class="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition duration-500">
+                    <svg class="w-24 h-24 text-orange-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
                 </div>
+                <p class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-1">Restock Alerts</p>
+                <h3 class="text-3xl font-black text-orange-900">@lowStockCount <span class="text-lg font-medium">Items</span></h3>
+                <p class="text-xs text-orange-400 mt-2 font-medium">Stock level < 5</p>
             </div>
 
-            @* --- ACTIONS --- *@
-            <div class="relative">
-                <button onclick="toggleMenuOptions(event)" id="openMenuBtn" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow hover:bg-indigo-700 transition duration-150 ease-in-out flex items-center space-x-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-                    <span>Menu Options</span>
-                </button>
-                <div id="menuOptionsModal" class="hidden absolute right-0 top-full mt-2 w-64 rounded-md shadow-2xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-40">
-                    <div class="py-1">
-                        <button onclick="openCreateModal()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-                            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            <span>Create New Item</span>
-                        </button>
-                        <button onclick="openStoreSettings()" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-                            <svg class="w-5 h-5 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
-                            <span>Store Settings</span>
-                        </button>
-                        <a href="/Shop?StoreId=@Model.CurrentStore.Id" target="_blank" class="w-full text-left px-4 py-3 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center space-x-3">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                            <span>View Public Storefront</span>
-                        </a>
-                        <button id="selectMoreToggle" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3 border-t border-gray-100">
-                            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
-                            <span>Select More Items</span>
-                        </button>
-                        <form method="post" asp-page-handler="ReIndex" onsubmit="return confirm('Confirm re-indexing?');">
-                            <button type="submit" class="w-full text-left px-4 py-3 text-sm text-yellow-700 bg-yellow-50 hover:bg-yellow-100 flex items-center space-x-3">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0l3-3m-3 3l3 3m12 6v-5h-.582m0 0a8.003 8.003 0 01-15.356-2m15.356 2l-3 3m3-3l-3-3"></path></svg>
-                                <span>Re-Index Positions</span>
-                            </button>
-                        </form>
-                        <form method="post" asp-page-handler="SeedInventory" class="border-t border-gray-100 bg-gray-50" onsubmit="showSariThinking('Stocking the shelves with goodies...')">
-                            <button type="submit" class="w-full text-left px-4 py-3 text-xs font-bold text-gray-500 hover:bg-gray-200 flex items-center space-x-3 uppercase tracking-wider">
-                                <span>🎲 Dev: Populate Inventory</span>
-                            </button>
-                        </form>
-                    </div>
+            <div class="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 relative overflow-hidden group hover:shadow-md transition">
+                <div class="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition duration-500">
+                    <svg class="w-24 h-24 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path></svg>
                 </div>
+                <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">Projected Profit</p>
+                <h3 class="text-3xl font-black text-green-900 price-display" data-price-php="@totalPotentialProfit">₱@totalPotentialProfit.ToString("N2")</h3>
+                <p class="text-xs text-green-500 mt-2 font-medium">If all items sold</p>
             </div>
         </div>
     </div>
@@ -116,79 +167,161 @@
     </div>
 
     @* --- MULTI SELECT BAR --- *@
-    <div id="multiSelectBar" class="hidden w-full bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm p-3 -mt-4 mb-4 z-10 transition-all duration-300">
+    <div id="multiSelectBar" class="hidden w-full bg-indigo-50 border border-indigo-200 rounded-xl shadow-md p-4 -mt-4 mb-4 z-10 transition-all duration-300">
         <div class="flex justify-between items-center">
-            <p class="text-sm font-medium text-indigo-700"><span id="selectedCount">0</span> item(s) selected</p>
+            <p class="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                <span class="bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded text-xs">SELECTED</span>
+                <span id="selectedCount" class="text-lg">0</span> item(s)
+            </p>
             <div class="flex items-center space-x-3">
                 <form method="post" asp-page-handler="Swap" id="multiSwitchForm">
                     <input type="hidden" name="ItemsToSwitch" id="swap_item1">
                     <input type="hidden" name="ItemsToSwitch" id="swap_item2">
-                    <button type="button" onclick="triggerCustomConfirm('swap')" id="multiSwitchBtn" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2" disabled>
+                    <button type="button" onclick="triggerCustomConfirm('swap')" id="multiSwitchBtn" class="px-4 py-2 bg-white border border-indigo-200 text-indigo-700 font-bold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition flex items-center space-x-2" disabled>
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                        <span>Switch 2 Items</span>
+                        <span>Swap Positions</span>
                     </button>
                 </form>
                 <form method="post" asp-page-handler="MassDelete" id="massDeleteForm">
                     <input type="hidden" name="ItemsToDelete" id="mass_delete_items">
-                    <button type="button" onclick="triggerCustomConfirm('delete')" id="massDeleteBtn" class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition duration-150 ease-in-out flex items-center space-x-2" disabled>
+                    <button type="button" onclick="triggerCustomConfirm('delete')" id="massDeleteBtn" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 transition flex items-center space-x-2" disabled>
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        <span>Mass Delete <span id="deleteCount">(0)</span></span>
+                        <span>Delete <span id="deleteCount">(0)</span></span>
                     </button>
                 </form>
-                <button onclick="exitMultiSelect()" class="text-indigo-700 hover:text-indigo-900 ml-2">
+                <button onclick="exitMultiSelect()" class="p-2 text-gray-400 hover:text-gray-600 ml-2 rounded-full hover:bg-gray-100 transition">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
         </div>
     </div>
 
-    @* Inventory Display Grid *@
+    @* --- VIEW CONTROLS (NEW) --- *@
+    <div class="flex justify-between items-end px-1">
+        <h2 class="text-xl font-bold text-gray-800">Inventory Items <span class="text-gray-400 text-sm font-normal">(@totalItems total)</span></h2>
+
+        <div class="bg-white border border-gray-200 p-1 rounded-lg flex items-center shadow-sm">
+            <button onclick="switchView('grid')" id="btnGrid" class="p-2 rounded-md bg-indigo-50 text-indigo-600 shadow-sm transition-all" title="Grid View">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            </button>
+            <button onclick="switchView('list')" id="btnList" class="p-2 rounded-md text-gray-400 hover:text-indigo-600 transition-all" title="List View">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    @* --- LIST VIEW TABLE (NEW - Hidden by Default) --- *@
+    <div id="listViewContainer" class="hidden bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 border-b border-gray-200 uppercase text-xs font-bold text-gray-500 tracking-wider">
+                    <tr>
+                        <th class="px-6 py-4">Product Name</th>
+                        <th class="px-6 py-4">Category</th>
+                        <th class="px-6 py-4 text-center">Stock Level</th>
+                        <th class="px-6 py-4 text-right">Cost (Puhunan)</th>
+                        <th class="px-6 py-4 text-right">Price (SRP)</th>
+                        <th class="px-6 py-4 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr class="hover:bg-indigo-50/30 transition duration-150 group"
+                            data-item-id="@item.Id" data-item-name="@item.Name" data-item-qty="@item.Quantity"
+                            data-item-price="@item.Price" data-item-cost="@item.CostPrice"
+                            oncontextmenu="handleContextMenu(event, this)">
+
+                            <td class="px-6 py-4">
+                                <span class="font-bold text-gray-900 block">@item.Name</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                    @item.Category
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                @if (item.Quantity == 0)
+                                {
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">Out of Stock</span>
+                                }
+                                else if (item.Quantity <= 5)
+                                {
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800">Low: @item.Quantity</span>
+                                }
+                                else
+                                {
+                                    <span class="font-medium text-gray-900">@item.Quantity</span>
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-right text-gray-500 price-display" data-price-php="@item.CostPrice">₱@item.CostPrice.ToString("N2")</td>
+                            <td class="px-6 py-4 text-right font-bold text-gray-900 price-display" data-price-php="@item.Price">₱@item.Price.ToString("N2")</td>
+                            <td class="px-6 py-4 text-center">
+                                <button onclick="contextMenuTargetId = '@item.Id'; contextMenuTargetElement = this.closest('tr'); prepareEditDeleteModal('edit')"
+                                        class="text-indigo-600 hover:text-indigo-900 font-bold text-xs hover:bg-indigo-50 px-3 py-1 rounded transition">
+                                    Edit
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* --- GRID VIEW (Existing) --- *@
     <div id="inventoryDisplay" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-inner max-h-[70vh] custom-scrollbar overflow-y-auto">
         @if (Model.Items.Count == 0)
         {
-            <div class="col-span-full text-center py-10">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+            <div class="col-span-full text-center py-20">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-6">
+                    <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900">No items found</h3>
-                <p class="text-gray-500 mt-1">Use "Menu Options" to add your first item.</p>
+                <h3 class="text-xl font-bold text-gray-900">Inventory is empty</h3>
+                <p class="text-gray-500 mt-2">Use the "Add Item" button to start stocking up.</p>
             </div>
         }
         else
         {
             index = 0;
-            @foreach (var item in Model.Items)
+            foreach (var item in Model.Items)
             {
                 string base64Image = null;
                 bool hasImage = item.LogoData != null && item.LogoContentType != null;
                 if (hasImage) { base64Image = $"data:{item.LogoContentType};base64,{Convert.ToBase64String(item.LogoData!)}"; }
                 var iconData = iconDataList[index % iconCount];
-
-                // ADDED: data-item-cost attribute for JS usage [cite: 4]
-                <div class="item-card bg-gray-50 p-3 rounded-lg border border-gray-100 hover:shadow-lg transition duration-150 ease-in-out cursor-pointer relative"
+                <div class="item-card bg-white p-3 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 ease-in-out cursor-pointer relative group"
                      data-item-id="@item.Id" data-item-name="@item.Name" data-item-qty="@item.Quantity"
                      data-item-price="@item.Price" data-item-cost="@item.CostPrice" data-item-position="@item.Position"
                      onclick="handleItemClick(event, this)" oncontextmenu="handleContextMenu(event, this)">
 
-                    <div class="h-20 w-full @(hasImage ? "p-0" : iconData.BgColor) flex items-center justify-center rounded-md mb-2 overflow-hidden">
+                    <div class="h-24 w-full @(hasImage ? "p-0" : iconData.BgColor) flex items-center justify-center rounded-lg mb-3 overflow-hidden relative">
                         @if (hasImage)
                         {
-                            <img src="@base64Image" alt="@item.Name logo" class="w-full h-full object-cover" />
+                            <img src="@base64Image" alt="@item.Name logo" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         }
                         else
                         {
+                            <svg class="w-12 h-12 @iconData.Color group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="@iconData.Path"></path></svg>
+                        }
 
-                            <svg class="w-10 h-10 @iconData.Color" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="@iconData.Path"></path></svg>
+                        @if (item.Quantity == 0)
+                        {
+                            <span class="absolute inset-0 bg-white/80 flex items-center justify-center text-red-600 font-bold text-xs">OUT OF STOCK</span>
                         }
                     </div>
-                    <p class="text-sm font-semibold text-gray-800 truncate">@item.Name</p>
-                    <p class="text-xs text-gray-500 mb-1 truncate">@item.Category</p>
+                    <p class="text-sm font-bold text-gray-800 truncate">@item.Name</p>
+                    <p class="text-xs text-gray-500 mb-2 truncate">@item.Category</p>
                     <div class="flex justify-between items-end">
-                        <div class="text-xs text-gray-500">Stock: <span class="font-medium text-gray-700">@item.Quantity</span></div>
-                        <div class="text-sm font-bold @(item.Quantity == 0 ? "text-red-600" : "text-green-600")">$@item.Price.ToString("N2")</div>
+                        <div class="text-xs text-gray-500">
+                            Stock: <span class="font-bold @(item.Quantity <= 5 ? "text-orange-500" : "text-gray-700")">@item.Quantity</span>
+                        </div>
+                        <div class="text-sm font-bold price-display @(item.Quantity == 0 ? "text-gray-400" : "text-green-600")" data-price-php="@item.Price">
+                            ₱@item.Price.ToString("N2")
+                        </div>
                     </div>
-                    <div class="multi-select-overlay hidden absolute inset-0 bg-indigo-500 bg-opacity-10 border-4 border-transparent rounded-lg flex items-start justify-end p-2 pointer-events-none">
-                        <svg class="w-6 h-6 text-indigo-600 opacity-0 transition-opacity" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                    <div class="multi-select-overlay hidden absolute inset-0 bg-indigo-600/10 border-2 border-indigo-600 rounded-xl flex items-start justify-end p-2 pointer-events-none">
+                        <svg class="w-6 h-6 text-indigo-600 bg-white rounded-full p-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
                     </div>
                 </div>
                 index++;
@@ -197,19 +330,31 @@
     </div>
 </div>
 
-@* --- INBOX MODAL --- *@
+@* --- INBOX MODAL (Customer List Sidebar) --- *@
 <div id="inboxModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-50 flex items-center justify-center backdrop-blur-sm">
-    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full h-[600px] flex flex-col overflow-hidden">
-        <div class="px-6 py-4 bg-gray-50 border-b flex justify-between items-center">
-            <h3 class="font-bold text-gray-800">Messages</h3>
-            <button onclick="document.getElementById('inboxModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700">&times;</button>
+    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[600px] flex overflow-hidden">
+        @* SIDEBAR *@
+        <div class="w-1/3 bg-gray-50 border-r border-gray-200 flex flex-col">
+            <div class="p-4 border-b font-bold text-gray-700">Messages</div>
+            <div id="customerList" class="flex-1 overflow-y-auto">
+                <div class="p-4 text-center text-gray-400 text-sm">Loading contacts...</div>
+            </div>
         </div>
-        <div id="msgContainer" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50"></div>
-        <div class="p-4 border-t bg-white">
-            <form id="replyForm" onsubmit="sendReply(event)" class="flex gap-2">
-                <input type="text" id="replyInput" placeholder="Type a reply..." class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">Send</button>
-            </form>
+        @* CHAT AREA *@
+        <div class="w-2/3 flex flex-col bg-white">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-gray-800" id="chatHeaderName">Select a chat</h3>
+                <button onclick="document.getElementById('inboxModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+            </div>
+            <div id="msgContainer" class="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+                <div class="h-full flex items-center justify-center text-gray-400">Select a customer to view messages</div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 hidden" id="replyArea">
+                <form id="replyForm" onsubmit="sendReply(event)" class="flex gap-2">
+                    <input type="text" id="replyInput" placeholder="Type a reply..." class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">Send</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -227,23 +372,24 @@
 </div>
 
 @* --- CONTEXT MENU --- *@
-<div id="contextMenu" class="hidden absolute w-48 rounded-md shadow-xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50">
+<div id="contextMenu" class="hidden absolute w-48 rounded-lg shadow-xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50 overflow-hidden">
     <div class="py-1">
-        <button id="updateItemBtn" onclick="prepareEditDeleteModal('edit')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+        <button id="updateItemBtn" onclick="prepareEditDeleteModal('edit')" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-3 transition">
             <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-9-4l6 6m0 0l2.5-2.5m-2.5 2.5l-6-6"></path></svg>
             <span>Update Item</span>
         </button>
-        <button onclick="prepareEditDeleteModal('delete')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+        <button onclick="prepareEditDeleteModal('delete')" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 flex items-center space-x-3 transition">
             <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             <span>Delete Item</span>
         </button>
-        <button onclick="enterMultiSelectAndSelectCurrent()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
-            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
+        <button onclick="enterMultiSelectAndSelectCurrent()" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3 transition">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0a2 2 0 002 2h6m-6 0h6m-9 0h2m-2 0h2m7 0h2m-2 0h2m-2 2h2m-2 2h2m-2 2h2"></path></svg>
             <span>Select More...</span>
         </button>
     </div>
 </div>
 
+@* --- STORE SETTINGS MODAL --- *@
 <div id="storeSettingsModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-md w-full">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Customize Your Store</h3>
@@ -273,6 +419,7 @@
     </div>
 </div>
 
+@* --- CREATE ITEM MODAL --- *@
 <div id="createItemModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Add New Inventory Item</h3>
@@ -291,13 +438,15 @@
                         </div>
                     </div>
                 </div>
-                <div>
-                    <label for="new_qty" class="block text-sm font-medium text-gray-700">Quantity</label>
-                    <input type="number" asp-for="NewItem.Quantity" id="new_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 50" min="0" required>
-                </div>
-                <div>
-                    <label for="new_cost" class="block text-sm font-medium text-gray-700">Cost Price (Puhunan)</label>
-                    <input type="number" asp-for="NewItem.CostPrice" id="new_cost" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 20.00" step="0.01" min="0" required>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="new_qty" class="block text-sm font-medium text-gray-700">Quantity</label>
+                        <input type="number" asp-for="NewItem.Quantity" id="new_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 50" min="0" required>
+                    </div>
+                    <div>
+                        <label for="new_cost" class="block text-sm font-medium text-gray-700">Cost (Puhunan)</label>
+                        <input type="number" asp-for="NewItem.CostPrice" id="new_cost" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g., 20.00" step="0.01" min="0" required>
+                    </div>
                 </div>
                 <div>
                     <label for="new_price" class="block text-sm font-medium text-gray-700">Selling Price (SRP)</label>
@@ -316,6 +465,7 @@
     </div>
 </div>
 
+@* --- EDIT ITEM MODAL --- *@
 <div id="editItemModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-30 flex items-center justify-center">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
         <h3 id="editModalTitle" class="text-xl font-bold text-gray-800 mb-4"></h3>
@@ -329,13 +479,15 @@
                 <label for="edit_category" class="block text-sm font-medium text-gray-700">Category</label>
                 <input type="text" asp-for="EditItem.Category" id="edit_category" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
             </div>
-            <div>
-                <label for="edit_qty" class="block text-sm font-medium text-gray-700">Quantity</label>
-                <input type="number" asp-for="EditItem.Quantity" id="edit_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" min="0" required>
-            </div>
-            <div>
-                <label for="edit_cost" class="block text-sm font-medium text-gray-700">Cost Price</label>
-                <input type="number" asp-for="EditItem.CostPrice" id="edit_cost" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0" required>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="edit_qty" class="block text-sm font-medium text-gray-700">Quantity</label>
+                    <input type="number" asp-for="EditItem.Quantity" id="edit_qty" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" min="0" required>
+                </div>
+                <div>
+                    <label for="edit_cost" class="block text-sm font-medium text-gray-700">Cost Price</label>
+                    <input type="number" asp-for="EditItem.CostPrice" id="edit_cost" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0" required>
+                </div>
             </div>
             <div>
                 <label for="edit_price" class="block text-sm font-medium text-gray-700">Selling Price</label>
@@ -362,6 +514,7 @@
     </div>
 </div>
 
+@* --- AI MODAL --- *@
 <div id="aiModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[80vh]">
         <div class="px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 flex justify-between items-center">
@@ -384,8 +537,41 @@
     </div>
 </div>
 
+@* --- AI NETWORK DIAGNOSTICS MODAL --- *@
+<div id="aiTesterModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-80 z-50 flex items-center justify-center backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-indigo-500">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="text-xl font-bold text-gray-800">🌐 AI Network Status</h3>
+                <p class="text-xs text-gray-500 mt-1">Diagnostics for Sari Intelligence Engine</p>
+            </div>
+            <div class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold">Status: Active</div>
+        </div>
+        <div class="space-y-4">
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-gray-700 text-sm">Connection Test</span>
+                    <span class="text-xs text-gray-400">Encrypted • Secure Protocol</span>
+                </div>
+                <p class="text-xs text-gray-500 mb-3">This will ping the AI connection to verify handshake protocols.</p>
+                <button onclick="testAiConnection()" id="startTestBtn" class="w-full py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Run Connectivity Check
+                </button>
+            </div>
+            <div id="aiTestResultPanel" class="hidden">
+                <div class="p-3 rounded-lg border text-sm font-mono break-all" id="aiTestResultContent"></div>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end">
+            <button onclick="document.getElementById('aiTesterModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium">Close Window</button>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
+        // Global variables for context handling
         let contextMenuTargetId = null;
         let contextMenuTargetElement = null;
         const contextMenu = document.getElementById('contextMenu');
@@ -410,9 +596,9 @@
         const sariDropdown = document.getElementById('sariDropdown');
         const notifDropdown = document.getElementById('notifDropdown');
 
-        function toggleMenuOptions(event) { event.stopPropagation(); if(menuModal) menuModal.classList.toggle('hidden'); }
-        function toggleSariMenu(event) { event.stopPropagation(); if(sariDropdown) sariDropdown.classList.toggle('hidden'); }
-        function toggleNotifications(event) { event.stopPropagation(); if(notifDropdown) notifDropdown.classList.toggle('hidden'); }
+        function toggleMenuOptions(e) { if(e) e.stopPropagation(); if(menuModal) menuModal.classList.toggle('hidden'); }
+        function toggleSariMenu(e) { if(e) e.stopPropagation(); if(sariDropdown) sariDropdown.classList.toggle('hidden'); }
+        function toggleNotifications(e) { if(e) e.stopPropagation(); if(notifDropdown) notifDropdown.classList.toggle('hidden'); }
 
         document.addEventListener('click', (e) => {
              if (menuModal && !menuModal.classList.contains('hidden') && !menuModal.contains(e.target)) menuModal.classList.add('hidden');
@@ -453,7 +639,6 @@
         }
 
         // Messages
-        let lastGuestId = null;
         setInterval(async () => {
             try {
                 const res = await fetch('/Dash?handler=FetchMessages');
@@ -461,15 +646,50 @@
                 if(data.messages && data.messages.length > 0) {
                     const badge = document.getElementById('msgBadge');
                     if(badge) badge.classList.remove('hidden');
-                    renderMessages(data.messages);
                 }
             } catch(e) {}
         }, 5000);
 
+        let currentActiveGuestId = null;
         function openInboxModal() {
             document.getElementById('inboxModal').classList.remove('hidden');
-            const badge = document.getElementById('msgBadge');
-            if(badge) badge.classList.add('hidden');
+            document.getElementById('msgBadge').classList.add('hidden');
+            loadConversations();
+        }
+
+        async function loadConversations() {
+            try {
+                const res = await fetch('/Dash?handler=FetchConversations');
+                const data = await res.json();
+                const list = document.getElementById('customerList');
+                if(!data.conversations || data.conversations.length === 0) {
+                    list.innerHTML = '<div class="p-4 text-center text-gray-400 text-sm">No messages yet.</div>';
+                    return;
+                }
+                let html = '';
+                data.conversations.forEach(c => {
+                    const activeClass = c.guestId === currentActiveGuestId ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-100 border-l-4 border-transparent';
+                    const date = new Date(c.time).toLocaleDateString();
+                    html += `
+                        <div onclick="selectChat('${c.guestId}')" class="p-4 cursor-pointer border-b border-gray-100 ${activeClass} transition">
+                            <div class="font-bold text-gray-800 text-sm truncate">${c.guestId}</div>
+                            <div class="text-xs text-gray-500 truncate">${c.lastMessage}</div>
+                            <div class="text-[10px] text-gray-400 mt-1">${date}</div>
+                        </div>
+                    `;
+                });
+                list.innerHTML = html;
+            } catch(e) { console.error(e); }
+        }
+
+        async function selectChat(guestId) {
+            currentActiveGuestId = guestId;
+            document.getElementById('chatHeaderName').textContent = "Chatting with: " + guestId;
+            document.getElementById('replyArea').classList.remove('hidden');
+            loadConversations();
+            const res = await fetch(`/Dash?handler=FetchGuestMessages&guestId=${guestId}`);
+            const data = await res.json();
+            renderMessages(data.messages);
         }
 
         function renderMessages(msgs) {
@@ -478,9 +698,8 @@
             let html = '';
             msgs.forEach(m => {
                 const align = m.sender === 'Seller' ? 'text-right' : 'text-left';
-                const bg = m.sender === 'Seller' ? 'bg-indigo-100' : 'bg-white';
-                html += `<div class="${align} mb-2"><span class="inline-block px-3 py-2 rounded-lg text-sm ${bg} shadow-sm max-w-xs break-words"><b>${m.sender}:</b> ${m.content}</span></div>`;
-                if(m.sender !== 'Seller') lastGuestId = m.guestId;
+                const bg = m.sender === 'Seller' ? 'bg-indigo-100' : 'bg-gray-100';
+                html += `<div class="${align} mb-2"><span class="inline-block px-3 py-2 rounded-lg text-sm ${bg} shadow-sm max-w-[80%] break-words"><b>${m.sender}:</b> ${m.content}</span></div>`;
             });
             container.innerHTML = html || '<p class="text-center text-gray-400 mt-10">No messages yet.</p>';
             container.scrollTop = container.scrollHeight;
@@ -489,16 +708,14 @@
         async function sendReply(e) {
             e.preventDefault();
             const input = document.getElementById('replyInput');
-            if(!input.value || !lastGuestId) return;
+            if(!input.value || !currentActiveGuestId) return;
             const formData = new FormData();
-            formData.append('guestId', lastGuestId);
+            formData.append('guestId', currentActiveGuestId);
             formData.append('content', input.value);
             const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
             await fetch('/Dash?handler=ReplyMessage', { method: 'POST', body: formData, headers: { 'RequestVerificationToken': token } });
             input.value = '';
-            const res = await fetch('/Dash?handler=FetchMessages');
-            const data = await res.json();
-            renderMessages(data.messages);
+            selectChat(currentActiveGuestId);
         }
 
         function triggerCustomConfirm(action) {
@@ -512,13 +729,15 @@
                 msg.textContent = `Are you sure you want to permanently delete ${selectedMultiIds.length} item(s)?`;
                 btn.textContent = 'Yes, Delete';
                 btn.className = 'px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium shadow-md transition-colors';
-                btn.onclick = () => { closeCustomConfirm(); showSariThinking('Cleaning up inventory...'); document.getElementById('massDeleteForm').submit(); };
+                btn.onclick = () => { closeCustomConfirm(); showSariThinking('Cleaning up inventory...');
+                document.getElementById('massDeleteForm').submit(); };
             } else if (action === 'swap') {
                 title.textContent = 'Swap Positions?';
                 msg.textContent = 'Swap the grid positions of these 2 items?';
                 btn.textContent = 'Yes, Swap';
                 btn.className = 'px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium shadow-md transition-colors';
-                btn.onclick = () => { closeCustomConfirm(); showSariThinking('Rearranging shelves...'); document.getElementById('multiSwitchForm').submit(); };
+                btn.onclick = () => { closeCustomConfirm(); showSariThinking('Rearranging shelves...'); document.getElementById('multiSwitchForm').submit();
+                };
             }
         }
         function closeCustomConfirm() { document.getElementById('customConfirmModal').classList.add('hidden'); }
@@ -526,11 +745,13 @@
         function showSariThinking(message) {
             const bubble = document.getElementById('sariThinking');
             const text = document.getElementById('sariThinkingText');
-            if(bubble && text) { text.textContent = message || "Thinking..."; bubble.classList.remove('hidden'); setTimeout(() => { bubble.classList.remove('translate-y-10', 'opacity-0'); }, 10); }
+            if(bubble && text) { text.textContent = message || "Thinking..."; bubble.classList.remove('hidden');
+            setTimeout(() => { bubble.classList.remove('translate-y-10', 'opacity-0'); }, 10); }
         }
         function hideSariThinking() {
             const bubble = document.getElementById('sariThinking');
-            if(bubble) { bubble.classList.add('translate-y-10', 'opacity-0'); setTimeout(() => { bubble.classList.add('hidden'); }, 500); }
+            if(bubble) { bubble.classList.add('translate-y-10', 'opacity-0'); setTimeout(() => { bubble.classList.add('hidden'); }, 500);
+            }
         }
 
         const nameInput = document.getElementById('new_name');
@@ -564,8 +785,7 @@
             const name = contextMenuTargetElement.getAttribute('data-item-name');
             const qty = contextMenuTargetElement.getAttribute('data-item-qty');
             const price = contextMenuTargetElement.getAttribute('data-item-price');
-            const cost = contextMenuTargetElement.getAttribute('data-item-cost'); // NEW
-
+            const cost = contextMenuTargetElement.getAttribute('data-item-cost');
             hideContextMenu();
             if (action === 'edit') {
                 document.getElementById('editModalTitle').textContent = `Update Item: ${name}`;
@@ -574,7 +794,7 @@
                 document.getElementById('edit_name').value = name;
                 document.getElementById('edit_qty').value = qty;
                 document.getElementById('edit_price').value = price;
-                document.getElementById('edit_cost').value = cost; // NEW
+                document.getElementById('edit_cost').value = cost;
                 document.getElementById('LogoFile_edit').value = '';
             } else if (action === 'delete') {
                 document.getElementById('editModalTitle').textContent = `Confirm Deletion for: ${name}`;
@@ -600,11 +820,14 @@
         }
 
         function handleItemClick(e, element) {
-            if (!contextMenu.classList.contains('hidden')) { hideContextMenu(); return; }
-            if (isMultiSelectMode) { toggleMultiSelect(element.getAttribute('data-item-id'), element); }
+            if (!contextMenu.classList.contains('hidden')) { hideContextMenu();
+            return; }
+            if (isMultiSelectMode) { toggleMultiSelect(element.getAttribute('data-item-id'), element);
+            }
         }
 
-        if(selectMoreToggle) { selectMoreToggle.addEventListener('click', (e) => { e.preventDefault(); menuModal.classList.add('hidden'); enterMultiSelect(); }); }
+        if(selectMoreToggle) { selectMoreToggle.addEventListener('click', (e) => { e.preventDefault(); menuModal.classList.add('hidden'); enterMultiSelect(); });
+        }
 
         function enterMultiSelect() {
             isMultiSelectMode = true;
@@ -632,7 +855,8 @@
             if (contextMenuTargetId && contextMenuTargetElement) {
                 const targetId = contextMenuTargetId;
                 hideContextMenu(); clearContextMenuTargets(); enterMultiSelect();
-                if (selectedMultiIds.indexOf(targetId) === -1) { toggleMultiSelect(targetId, contextMenuTargetElement); }
+                if (selectedMultiIds.indexOf(targetId) === -1) { toggleMultiSelect(targetId, contextMenuTargetElement);
+                }
             }
         }
 
@@ -663,13 +887,17 @@
             const canSwitch = count === 2;
             multiSwitchBtn.disabled = !canSwitch;
             multiSwitchBtn.classList.toggle('opacity-50', !canSwitch);
-            if (canSwitch) { swapItem1Input.value = selectedMultiIds[0]; swapItem2Input.value = selectedMultiIds[1]; }
-            else { swapItem1Input.value = ""; swapItem2Input.value = ""; }
+            if (canSwitch) { swapItem1Input.value = selectedMultiIds[0]; swapItem2Input.value = selectedMultiIds[1];
+            }
+            else { swapItem1Input.value = ""; swapItem2Input.value = "";
+            }
             const canDelete = count > 0;
             massDeleteBtn.disabled = !canDelete;
             massDeleteBtn.classList.toggle('opacity-50', !canDelete);
-            if (canDelete) { massDeleteItemsInput.value = selectedMultiIds.join(','); }
-            else { massDeleteItemsInput.value = ""; }
+            if (canDelete) { massDeleteItemsInput.value = selectedMultiIds.join(',');
+            }
+            else { massDeleteItemsInput.value = "";
+            }
         }
 
         async function askSari(mode) {
@@ -685,7 +913,8 @@
                 responseBox.textContent = "";
                 modal.classList.remove('hidden');
                 typeWriter(data.message, responseBox);
-            } catch (err) { hideSariThinking(); alert("Sari is sleeping."); }
+            } catch (err) { hideSariThinking(); alert("Sari is sleeping.");
+            }
         }
 
         function typeWriter(text, element) {
@@ -700,5 +929,89 @@
                 }
             } type();
         }
+
+        function openAiTester() {
+            document.getElementById('menuOptionsModal').classList.add('hidden');
+            document.getElementById('aiTesterModal').classList.remove('hidden');
+            document.getElementById('aiTestResultPanel').classList.add('hidden');
+            document.getElementById('startTestBtn').disabled = false;
+            document.getElementById('startTestBtn').innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Run Connectivity Check`;
+        }
+
+        async function testAiConnection() {
+            const btn = document.getElementById('startTestBtn');
+            const panel = document.getElementById('aiTestResultPanel');
+            const content = document.getElementById('aiTestResultContent');
+
+            // UI Loading State
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Pinging Satellite...`;
+            panel.classList.remove('hidden');
+            content.className = 'p-3 rounded-lg border bg-gray-100 border-gray-300 text-gray-500';
+            content.innerHTML = "Negotiating handshake with Sari Service...";
+
+            try {
+                // FIXED: Use relative URL to avoid 404 errors on different environments
+                const response = await fetch('?handler=TestAiModel');
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    content.className = 'p-3 rounded-lg border bg-green-50 border-green-200 text-green-800';
+                    content.innerHTML = `<div class="flex items-center gap-2 mb-1"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span><span class="font-bold">ONLINE (${data.time}ms)</span></div><div class="text-xs opacity-90">Response: "${data.message}"</div>`;
+                } else {
+                    content.className = 'p-3 rounded-lg border bg-red-50 border-red-200 text-red-800';
+                    content.innerHTML = `<div class="flex items-center gap-2 mb-1"><span class="w-2 h-2 bg-red-500 rounded-full"></span><span class="font-bold">CONNECTION FAILED</span></div><div class="text-xs opacity-90">${data.message}</div>`;
+                }
+            } catch (err) {
+                console.error("AI Test Error:", err);
+                content.className = 'p-3 rounded-lg border bg-red-50 border-red-200 text-red-800';
+                content.innerHTML = `<strong>Network Error:</strong> ${err.message}. Check console (F12) for details.`;
+            }
+
+            // Reset Button
+            btn.disabled = false;
+            btn.innerHTML = "Run Test Again";
+        }
+
+        // --- NEW: VIEW SWITCHER LOGIC ---
+        function switchView(mode) {
+            const grid = document.getElementById('inventoryDisplay');
+            const list = document.getElementById('listViewContainer');
+            const btnGrid = document.getElementById('btnGrid');
+            const btnList = document.getElementById('btnList');
+            if (mode === 'grid') {
+                grid.classList.remove('hidden');
+                list.classList.add('hidden');
+
+                // Active State for Grid Button
+                btnGrid.classList.add('bg-indigo-50', 'text-indigo-600', 'shadow-sm');
+                btnGrid.classList.remove('text-gray-400');
+
+                // Inactive State for List Button
+                btnList.classList.remove('bg-indigo-50', 'text-indigo-600', 'shadow-sm');
+                btnList.classList.add('text-gray-400');
+            } else {
+                grid.classList.add('hidden');
+                list.classList.remove('hidden');
+
+                // Active State for List Button
+                btnList.classList.add('bg-indigo-50', 'text-indigo-600', 'shadow-sm');
+                btnList.classList.remove('text-gray-400');
+
+                // Inactive State for Grid Button
+                btnGrid.classList.remove('bg-indigo-50', 'text-indigo-600', 'shadow-sm');
+                btnGrid.classList.add('text-gray-400');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+             const savedCurrency = localStorage.getItem('sariCurrency') || 'PHP';
+             if(window.applyCurrency) window.applyCurrency(savedCurrency);
+        });
     </script>
 }

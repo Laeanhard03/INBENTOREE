@@ -1,4 +1,7 @@
-﻿<!DOCTYPE html>
+﻿@inject MongoDB.Driver.IMongoDatabase _db
+@using MongoDB.Driver
+@using Microsoft.AspNetCore.Http
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -38,7 +41,7 @@
             font-weight: 500;
             color: white;
             opacity: 0;
-            pointer-events: none; /* Hidden by default */
+            pointer-events: none;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
             transform: translate(-50%, -50%) scale(0.9);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -64,26 +67,37 @@
     <header class="bg-white shadow-md sticky top-0 z-20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center gap-4">
 
-            @* --- BRAND --- *@
-            <a asp-page="/Index" class="text-xl font-bold text-indigo-700 tracking-tight flex items-center gap-2 flex-shrink-0">
+            @* --- BRAND (Always goes to Public Marketplace List) --- *@
+            <a href="/Shop?view=marketplace" class="text-xl font-bold text-indigo-700 tracking-tight flex items-center gap-2 flex-shrink-0">
                 <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
                 <span class="hidden sm:inline">Sari-Sari Marketplace</span>
             </a>
 
-            @* --- GLOBAL SEARCH BAR (New) --- *@
-            <div class="flex-1 max-w-lg hidden md:block">
-                <form action="/Shop" method="get" class="relative">
+            @* --- GLOBAL SEARCH BAR (Hidden if ViewData["HideGlobalSearch"] is true) --- *@
+            <div class="@(ViewData["HideGlobalSearch"]?.ToString() == "true" ? "hidden" : "flex-1 max-w-lg hidden md:block relative group")">
+                <form action="/Shop" method="get" class="relative w-full" autocomplete="off">
+
                     @if (Context.Request.Query.ContainsKey("StoreId"))
                     {
-                        <input type="hidden" name="StoreId" value="@Context.Request.Query["StoreId"]" />
+                        <input type="hidden" name="StoreId" id="globalStoreId" value="@Context.Request.Query["StoreId"]" />
                     }
-                    <input type="text" name="SearchTerm" value="@Context.Request.Query["SearchTerm"]"
+
+                    <input type="text" name="SearchTerm" id="globalSearchInput"
+                           value="@Context.Request.Query["SearchTerm"]"
                            placeholder="Search items or categories..."
-                           class="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm bg-gray-50 hover:bg-white transition-colors" />
+                           class="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm bg-gray-50 hover:bg-white transition-colors"
+                           oninput="fetchSuggestions(this.value, 'suggestionList')" />
+
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
                 </form>
+
+                @* --- AUTOCOMPLETE DROPDOWN (Hidden by default) --- *@
+                <div id="searchSuggestions" class="absolute top-full left-0 w-full bg-white rounded-xl shadow-xl border border-gray-100 mt-2 hidden z-50 overflow-hidden">
+                    <div id="suggestionList" class="flex flex-col">
+                    </div>
+                </div>
             </div>
 
             <div class="flex items-center space-x-4 flex-shrink-0">
@@ -99,14 +113,41 @@
                 <nav class="flex items-center space-x-1 sm:space-x-4">
                     @if (User.Identity != null && User.Identity.IsAuthenticated)
                     {
-                        <a asp-page="/Shop" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">Shop</a>
+                        @* 1. SELLER NAVIGATION *@
+                        @if (User.IsInRole("Seller"))
+                        {
+                            // Retrieve the User's Store ID dynamically for the "Spectator" link
+                            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                            var myStoreId = "";
+                            if (userId != null)
+                            {
+                                var storeCol = _db.GetCollection<WebApplication11.Pages.Store>("Stores");
+                                var myStore = await storeCol.Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
+                                myStoreId = myStore?.Id ?? "";
+                            }
 
-                        <a asp-page="/Dash" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">My Store</a>
+                            // A. DASHBOARD (Inventory Management)
+                            <a asp-page="/Dash" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                                <span>Dashboard</span>
+                            </a>
 
-                        <a asp-page="/Reports" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">Reports</a>
+                            // B. MY SHOP VIEW (Spectator Mode)
+                            if (!string.IsNullOrEmpty(myStoreId))
+                            {
+                                <a href="/Shop?StoreId=@myStoreId" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                    <span>My Shop View</span>
+                                </a>
+                            }
 
-                        @* Cart Icon - HIDDEN ON DASHBOARD *@
-                        @if (ViewContext.RouteData.Values["page"]?.ToString() != "/Dash")
+                            // C. REPORTS
+                            <a asp-page="/Reports" class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">Reports</a>
+                        }
+
+                        @* 2. ALWAYS SHOW CART ON SHOP PAGE *@
+                        var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+                        @if (currentPage == "/Shop" || User.IsInRole("Customer"))
                         {
                             var storeId = Context.Request.Query["StoreId"];
                             var cartLink = string.IsNullOrEmpty(storeId) ? "/Shop?view=cart" : $"/Shop?StoreId={storeId}&view=cart";
@@ -149,7 +190,6 @@
         </div>
     </footer>
 
-    @* --- FIXED TOAST CONTAINER: Always exists in DOM --- *@
     <div id="toast-notification" class="@(TempData["success"] != null ? "success show" : "") @(TempData["error"] != null ? "error show" : "")">
         @if (TempData["success"] != null)
         {
@@ -165,18 +205,15 @@
     @await RenderSectionAsync("Scripts", required: false)
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Auto-hide toast if shown by TempData
             const toast = document.getElementById('toast-notification');
-            if (toast && toast.classList.contains('show')) {
-                setTimeout(() => { toast.classList.remove('show'); }, 4000);
-            }
-            // Restore Currency Selection
+            if (toast && toast.classList.contains('show')) { setTimeout(() => { toast.classList.remove('show'); }, 4000); }
+
             const savedCurrency = localStorage.getItem('sariCurrency') || 'PHP';
-            document.getElementById('currencySelector').value = savedCurrency;
+            const selector = document.getElementById('currencySelector');
+            if(selector) selector.value = savedCurrency;
             applyCurrency(savedCurrency);
         });
 
-        // --- GLOBAL CURRENCY LOGIC ---
         function changeCurrency(currency) {
             localStorage.setItem('sariCurrency', currency);
             applyCurrency(currency);
@@ -185,7 +222,6 @@
         function applyCurrency(currency) {
             let rate = 1;
             let symbol = '₱';
-
             if (currency === 'USD') { rate = 0.018; symbol = '$'; }
             else if (currency === 'JPY') { rate = 2.65; symbol = '¥'; }
             else if (currency === 'EUR') { rate = 0.016; symbol = '€'; }
@@ -198,6 +234,80 @@
                 }
             });
         }
+
+        // --- UPDATED SMART SEARCH LOGIC ---
+        let debounceTimer;
+
+        // Now accepts targetListId to know WHERE to put the results (header or hero)
+        function fetchSuggestions(query, targetListId) {
+            // Determine which box/input we are dealing with
+            const list = document.getElementById(targetListId);
+            const box = list.parentElement;
+            const storeId = document.getElementById('globalStoreId')?.value || '';
+
+            clearTimeout(debounceTimer);
+
+            if (!query || query.length < 1) {
+                box.classList.add('hidden');
+                return;
+            }
+
+            debounceTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/Shop?handler=SearchSuggestions&term=${encodeURIComponent(query)}&storeId=${storeId}`);
+                    const suggestions = await response.json();
+
+                    list.innerHTML = '';
+
+                    if (suggestions.length > 0) {
+                        suggestions.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = "px-4 py-3 hover:bg-indigo-50 cursor-pointer text-sm text-gray-700 border-b border-gray-50 last:border-0 flex items-center gap-2";
+
+                            const regex = new RegExp(`(${query})`, 'gi');
+                            const highlighted = item.replace(regex, '<span class="font-bold text-indigo-600">$1</span>');
+
+                            div.innerHTML = `<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> <span>${highlighted}</span>`;
+
+                            div.onclick = () => {
+                                // Find which input triggered this (Header or Hero)
+                                if(targetListId === 'heroSuggestionList') {
+                                    document.getElementById('heroSearchInput').value = item;
+                                    document.querySelector('#heroSearchInput').closest('form').submit();
+                                } else {
+                                    document.getElementById('globalSearchInput').value = item;
+                                    document.querySelector('#globalSearchInput').closest('form').submit();
+                                }
+                                box.classList.add('hidden');
+                            };
+                            list.appendChild(div);
+                        });
+                        box.classList.remove('hidden');
+                    } else {
+                        box.classList.add('hidden');
+                    }
+                } catch (err) {
+                    console.error("Search error", err);
+                }
+            }, 300);
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            // Check Global Search
+            const globalBox = document.getElementById('searchSuggestions');
+            const globalInput = document.getElementById('globalSearchInput');
+            if (globalBox && !globalBox.contains(e.target) && e.target !== globalInput) {
+                globalBox.classList.add('hidden');
+            }
+
+            // Check Hero Search
+            const heroBox = document.getElementById('heroSearchSuggestions');
+            const heroInput = document.getElementById('heroSearchInput');
+            if (heroBox && !heroBox.contains(e.target) && e.target !== heroInput) {
+                heroBox.classList.add('hidden');
+            }
+        });
     </script>
 </body>
 </html>
