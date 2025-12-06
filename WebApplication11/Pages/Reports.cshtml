@@ -123,7 +123,7 @@
         <div class="mt-4 md:mt-0 flex flex-col md:flex-row gap-3 items-center">
             <form method="post" asp-page-handler="Analyze"><button type="submit" class="group relative inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-white transition-all duration-200 bg-indigo-600 rounded-full focus:outline-none hover:bg-indigo-700 shadow-md"><span>Re-Analyze (AI)</span></button></form>
 
-            @* CHANGED: DOWNLOAD FORM TARGETING CSV HANDLER *@
+            @* DOWNLOAD FORM TARGETING CSV HANDLER *@
             <form method="post" asp-page-handler="DownloadReport">
                 <button type="submit"
                         class="group relative inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-700 transition-all duration-200 bg-white border-2 border-gray-200 rounded-full hover:bg-gray-50 hover:text-indigo-600 shadow-sm">
@@ -264,6 +264,33 @@
                         </tbody>
                     </table>
                 </div>
+
+                @* --- NEW: RECENT TRANSACTIONS TABLE --- *@
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative z-10">
+                    <div class="px-6 py-4 border-b border-gray-50 bg-gray-50 flex justify-between items-center"><h3 class="font-bold text-gray-800">Recent Transactions</h3><span class="text-xs text-gray-500 px-2 py-1 rounded">Last 20 Orders</span></div>
+                    <table class="w-full text-left text-sm text-gray-600">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-400 font-medium"><tr><th class="px-4 py-3">Order</th><th class="px-4 py-3">Date</th><th class="px-4 py-3 text-right">Total</th></tr></thead>
+                        <tbody class="divide-y divide-gray-50">
+                            @if (Model.RecentOrders.Count == 0)
+                            {
+                                <tr><td colspan="3" class="px-4 py-4 text-center text-gray-400">No recent orders found.</td></tr>
+                            }
+                            else
+                            {
+                                foreach (var order in Model.RecentOrders)
+                                {
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-4 py-3 font-medium text-gray-900">@order.OrderCode</td>
+                                        <td class="px-4 py-3 text-gray-500">@order.OrderDate.ToString("MMM dd, hh:mm tt")</td>
+                                        <td class="px-4 py-3 text-right font-mono price-display" data-price-php="@order.TotalAmount">₱@order.TotalAmount.ToString("N2")</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @* --- END NEW SECTION --- *@
+
             </div>
         </div>
 
