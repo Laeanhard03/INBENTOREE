@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using MongoDB.Driver;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Configuration;
 using System.Net.Http;
 using System.Text;
 using System.Security.Claims;
@@ -29,7 +28,7 @@ namespace WebApplication11.Pages
             _sari = sari;
         }
 
-        // --- PROPERTIES ---
+        // --- KPI PROPERTIES ---
         public decimal TotalRevenue { get; set; }
         public decimal TotalProfit { get; set; }
         public int TotalOrders { get; set; }
@@ -39,22 +38,39 @@ namespace WebApplication11.Pages
         public List<TopItemDto> TopSellingItems { get; set; } = new();
         public List<Order> RecentOrders { get; set; } = new();
 
-        // --- CHARTS & UI ---
-        public string CategoryChartLabels { get; set; } = "[]";
-        public string CategoryChartData { get; set; } = "[]";
-        public string SalesChartLabels { get; set; } = "[]";
+        // --- CHART DATA PROPERTIES ---
+        // 1. Sales Trends
+        public string SalesChartLabels { get; set; } = "[]";      // Daily
         public string SalesChartData { get; set; } = "[]";
+        public string MonthlySalesLabels { get; set; } = "[]";    // Monthly
+        public string MonthlySalesData { get; set; } = "[]";
+        public string QuarterlySalesLabels { get; set; } = "[]";  // Quarterly
+        public string QuarterlySalesData { get; set; } = "[]";
+
+        // 2. Category Breakdowns
+        public string CategoryLabels { get; set; } = "[]";        // All Time
+        public string CategoryData { get; set; } = "[]";
+        public string CategoryMonthlyLabels { get; set; } = "[]"; // This Month
+        public string CategoryMonthlyData { get; set; } = "[]";
+        public string CategoryQuarterlyLabels { get; set; } = "[]"; // This Quarter
+        public string CategoryQuarterlyData { get; set; } = "[]";
+
+        // 3. AI & Helpers
         public string ForecastChartData { get; set; } = "[]";
         public string HolidayPrediction { get; set; } = "Click 'Re-Analyze' to generate AI insights.";
         public List<string> ActionableTips { get; set; } = new();
         public DateTime? LastAnalysisDate { get; set; }
+
+        // --- APPENDIX DATA FOR PDF (Tables) ---
+        public List<PeriodStat> MonthlyStats { get; set; } = new();
+        public List<PeriodStat> QuarterlyStats { get; set; } = new();
 
         public async Task OnGetAsync()
         {
             var storeId = await GetStoreIdAsync();
             if (string.IsNullOrEmpty(storeId)) return;
 
-            // 1. Load Data
+            // Load Data
             var store = await _db.GetCollection<Store>(StoreCollection).Find(s => s.Id == storeId).FirstOrDefaultAsync();
             var items = await _db.GetCollection<Item>(ItemCollection).Find(i => i.StoreId == storeId).ToListAsync();
             var orders = await _db.GetCollection<Order>(OrderCollection)
@@ -62,24 +78,22 @@ namespace WebApplication11.Pages
                                   .SortByDescending(o => o.OrderDate)
                                   .ToListAsync();
 
-            // 2. Calculate KPIs
+            // Calculate KPIs
             RecentOrders = orders.Take(20).ToList();
             TotalRevenue = orders.Sum(o => o.TotalAmount);
             TotalOrders = orders.Count;
             TotalProfit = orders.SelectMany(o => o.Items).Sum(i => (i.Price - i.Cost) * i.Quantity);
-
             LowStockItems = items.Where(i => i.Quantity < 5).OrderBy(i => i.Quantity).ToList();
 
-            // Slow Moving: Items with stock > 10 that haven't sold recently
             var soldItemNames = orders.SelectMany(o => o.Items).Select(i => i.ItemName).Distinct().ToHashSet();
             SlowMovingItems = items.Where(i => i.Quantity > 10 && !soldItemNames.Contains(i.Name)).Take(5).ToList();
 
-            // 3. Prepare Charts
-            PrepareSalesChart(orders);
-            PrepareCategoryChart(items, orders);
+            // --- PREPARE CHARTS & REPORTS ---
+            PrepareSalesCharts(orders);
+            PrepareCategoryCharts(items, orders);
             PrepareTopSellers(orders);
 
-            // 4. Load Cached AI Data
+            // Load Cached AI
             if (store != null && store.LastReport != null)
             {
                 ForecastChartData = JsonSerializer.Serialize(store.LastReport.Forecast);
@@ -90,6 +104,68 @@ namespace WebApplication11.Pages
             }
         }
 
+        // --- NEW: SALES CHART LOGIC (Daily, Monthly, Quarterly) ---
+        private void PrepareSalesCharts(List<Order> orders)
+        {
+            // 1. Daily (Last 7 Days)
+            var last7Days = Enumerable.Range(0, 7).Select(i => DateTime.UtcNow.Date.AddDays(-6 + i)).ToList();
+            var dailyMap = new Dictionary<string, decimal>();
+            foreach (var date in last7Days) dailyMap[date.ToString("MMM dd")] = orders.Where(o => o.OrderDate.Date == date).Sum(o => o.TotalAmount);
+            SalesChartLabels = JsonSerializer.Serialize(dailyMap.Keys);
+            SalesChartData = JsonSerializer.Serialize(dailyMap.Values);
+
+            // 2. Monthly (Last 12 Months)
+            var monthlyGroups = orders.GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
+                                      .Select(g => new PeriodStat { Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"), Total = g.Sum(o => o.TotalAmount), Date = new DateTime(g.Key.Year, g.Key.Month, 1) })
+                                      .OrderBy(x => x.Date).TakeLast(12).ToList();
+            MonthlySalesLabels = JsonSerializer.Serialize(monthlyGroups.Select(x => x.Label));
+            MonthlySalesData = JsonSerializer.Serialize(monthlyGroups.Select(x => x.Total));
+            MonthlyStats = monthlyGroups; // For PDF Table
+
+            // 3. Quarterly (Last 8 Quarters)
+            var quarterlyGroups = orders.GroupBy(o => new { o.OrderDate.Year, Quarter = (o.OrderDate.Month - 1) / 3 + 1 })
+                                        .Select(g => new PeriodStat { Label = $"Q{g.Key.Quarter} {g.Key.Year}", Total = g.Sum(o => o.TotalAmount), Date = new DateTime(g.Key.Year, (g.Key.Quarter - 1) * 3 + 1, 1) })
+                                        .OrderBy(x => x.Date).TakeLast(8).ToList();
+            QuarterlySalesLabels = JsonSerializer.Serialize(quarterlyGroups.Select(x => x.Label));
+            QuarterlySalesData = JsonSerializer.Serialize(quarterlyGroups.Select(x => x.Total));
+            QuarterlyStats = quarterlyGroups; // For PDF Table
+        }
+
+        // --- NEW: CATEGORY CHART LOGIC (All Time, Monthly, Quarterly) ---
+        private void PrepareCategoryCharts(List<Item> items, List<Order> orders)
+        {
+            var catMap = items.ToDictionary(i => i.Name, i => i.Category);
+
+            // Helper to aggregate
+            Dictionary<string, decimal> AggregateCats(IEnumerable<Order> filteredOrders)
+            {
+                var dict = new Dictionary<string, decimal>();
+                foreach (var oItem in filteredOrders.SelectMany(o => o.Items))
+                {
+                    string cat = catMap.ContainsKey(oItem.ItemName) ? catMap[oItem.ItemName] : "General";
+                    if (!dict.ContainsKey(cat)) dict[cat] = 0;
+                    dict[cat] += oItem.Total;
+                }
+                return dict;
+            }
+
+            // 1. All Time
+            var allTime = AggregateCats(orders);
+            CategoryLabels = JsonSerializer.Serialize(allTime.Keys);
+            CategoryData = JsonSerializer.Serialize(allTime.Values);
+
+            // 2. This Month
+            var thisMonth = AggregateCats(orders.Where(o => o.OrderDate.Month == DateTime.UtcNow.Month && o.OrderDate.Year == DateTime.UtcNow.Year));
+            CategoryMonthlyLabels = JsonSerializer.Serialize(thisMonth.Keys);
+            CategoryMonthlyData = JsonSerializer.Serialize(thisMonth.Values);
+
+            // 3. This Quarter
+            int currentQ = (DateTime.UtcNow.Month - 1) / 3 + 1;
+            var thisQuarter = AggregateCats(orders.Where(o => ((o.OrderDate.Month - 1) / 3 + 1) == currentQ && o.OrderDate.Year == DateTime.UtcNow.Year));
+            CategoryQuarterlyLabels = JsonSerializer.Serialize(thisQuarter.Keys);
+            CategoryQuarterlyData = JsonSerializer.Serialize(thisQuarter.Values);
+        }
+
         public async Task<IActionResult> OnPostAnalyzeAsync()
         {
             var storeId = await GetStoreIdAsync();
@@ -97,14 +173,12 @@ namespace WebApplication11.Pages
 
             var orders = await _db.GetCollection<Order>(OrderCollection).Find(o => o.StoreId == storeId).ToListAsync();
 
-            // --- FIX: HANDLE NO DATA CASE ---
             if (orders.Count < 5)
             {
                 TempData["error"] = "Not enough data! Please click 'Gen Data' to create sample sales history first.";
                 return RedirectToPage();
             }
 
-            // Prepare Data for AI
             var last7Days = Enumerable.Range(0, 7).Select(i => DateTime.UtcNow.Date.AddDays(-6 + i)).ToList();
             var salesMap = new Dictionary<string, decimal>();
             foreach (var date in last7Days)
@@ -137,26 +211,25 @@ namespace WebApplication11.Pages
             return RedirectToPage();
         }
 
-        // --- DATA GENERATOR (SEEDS ORDERS) ---
         public async Task<IActionResult> OnPostSeedHistoryAsync()
         {
             var storeId = await GetStoreIdAsync();
             if (string.IsNullOrEmpty(storeId)) return RedirectToPage();
 
             var items = await _db.GetCollection<Item>(ItemCollection).Find(i => i.StoreId == storeId).ToListAsync();
-            if (items.Count == 0) return RedirectToPage(); // Need items to sell
+            if (items.Count == 0) return RedirectToPage();
 
             var ordersCollection = _db.GetCollection<Order>(OrderCollection);
             var newOrders = new List<Order>();
             var random = new Random();
 
-            // Create fake sales for the last 14 days
-            for (int i = 14; i >= 0; i--)
+            // Create fake sales for the last 90 days to populate quarters
+            for (int i = 90; i >= 0; i--)
             {
-                if (random.NextDouble() > 0.8) continue; // 20% chance of no sales that day
+                if (random.NextDouble() > 0.7) continue;
 
                 var date = DateTime.UtcNow.AddDays(-i);
-                int dailyOrders = random.Next(1, 6); // 1-5 orders per day
+                int dailyOrders = random.Next(1, 4);
 
                 for (int j = 0; j < dailyOrders; j++)
                 {
@@ -193,14 +266,29 @@ namespace WebApplication11.Pages
             return RedirectToPage();
         }
 
-        // --- HELPER METHODS ---
+        private void PrepareTopSellers(List<Order> orders)
+        {
+            var allItems = orders.SelectMany(o => o.Items);
+            TopSellingItems = allItems.GroupBy(i => i.ItemName)
+                .Select(g => new TopItemDto { Name = g.Key, QuantitySold = g.Sum(x => x.Quantity), TotalRevenue = g.Sum(x => x.Total) })
+                .OrderByDescending(x => x.QuantitySold)
+                .Take(5)
+                .ToList();
+        }
+
+        private async Task<string?> GetStoreIdAsync()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return null;
+            var store = await _db.GetCollection<Store>(StoreCollection).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
+            return store?.Id;
+        }
 
         private async Task<AiReportData?> GenerateAiForecast(Dictionary<string, decimal> pastSales)
         {
             var keys = _sari.GetDecryptedKeys();
             var baseUrl = _sari.GetFullApiUrl();
 
-            // Strictly formatted prompt to prevent AI chatting back
             var context = JsonSerializer.Serialize(pastSales);
             string prompt = $"DATA: {context}. TASK: Predict sales for next 7 days. Identify 1 holiday trend. Give 3 short business tips. RESPONSE FORMAT (JSON ONLY): {{ \"forecast\": [100.00, 120.50, ...], \"holidayNote\": \"string\", \"tips\": [\"string\", \"string\", \"string\"] }}";
 
@@ -219,7 +307,6 @@ namespace WebApplication11.Pages
                         if (doc.RootElement.TryGetProperty("candidates", out var candidates))
                         {
                             var text = candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
-                            // Clean markdown
                             text = text.Replace("```json", "").Replace("```", "").Trim();
                             return JsonSerializer.Deserialize<AiReportData>(text, _jsonOptions);
                         }
@@ -228,50 +315,6 @@ namespace WebApplication11.Pages
                 catch { continue; }
             }
             return null;
-        }
-
-        private void PrepareSalesChart(List<Order> orders)
-        {
-            var last7Days = Enumerable.Range(0, 7).Select(i => DateTime.UtcNow.Date.AddDays(-6 + i)).ToList();
-            var salesMap = new Dictionary<string, decimal>();
-            foreach (var date in last7Days)
-            {
-                salesMap[date.ToString("MMM dd")] = orders.Where(o => o.OrderDate.Date == date).Sum(o => o.TotalAmount);
-            }
-            SalesChartLabels = JsonSerializer.Serialize(salesMap.Keys);
-            SalesChartData = JsonSerializer.Serialize(salesMap.Values);
-        }
-
-        private void PrepareTopSellers(List<Order> orders)
-        {
-            var allItems = orders.SelectMany(o => o.Items);
-            TopSellingItems = allItems.GroupBy(i => i.ItemName)
-                .Select(g => new TopItemDto { Name = g.Key, QuantitySold = g.Sum(x => x.Quantity), TotalRevenue = g.Sum(x => x.Total) })
-                .OrderByDescending(x => x.QuantitySold)
-                .Take(5)
-                .ToList();
-        }
-
-        private void PrepareCategoryChart(List<Item> items, List<Order> orders)
-        {
-            var catMap = items.ToDictionary(i => i.Name, i => i.Category);
-            var catRevenue = new Dictionary<string, decimal>();
-            foreach (var oItem in orders.SelectMany(o => o.Items))
-            {
-                string cat = catMap.ContainsKey(oItem.ItemName) ? catMap[oItem.ItemName] : "General";
-                if (!catRevenue.ContainsKey(cat)) catRevenue[cat] = 0;
-                catRevenue[cat] += oItem.Total;
-            }
-            CategoryChartLabels = JsonSerializer.Serialize(catRevenue.Keys);
-            CategoryChartData = JsonSerializer.Serialize(catRevenue.Values);
-        }
-
-        private async Task<string?> GetStoreIdAsync()
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null) return null;
-            var store = await _db.GetCollection<Store>(StoreCollection).Find(s => s.OwnerId == userId).FirstOrDefaultAsync();
-            return store?.Id;
         }
 
         public class AiReportData
@@ -286,6 +329,13 @@ namespace WebApplication11.Pages
             public string Name { get; set; } = "";
             public int QuantitySold { get; set; }
             public decimal TotalRevenue { get; set; }
+        }
+
+        public class PeriodStat
+        {
+            public string Label { get; set; } = "";
+            public decimal Total { get; set; }
+            public DateTime Date { get; set; }
         }
     }
 }
