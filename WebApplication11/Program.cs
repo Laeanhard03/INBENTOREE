@@ -229,7 +229,7 @@ namespace WebApplication11.Pages
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    // --- UPDATED STORE MODEL WITH CACHE ---
+    // --- UPDATED STORE MODEL WITH CACHE & GPS ---
     public class Store
     {
         [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)] public string? Id { get; set; }
@@ -237,6 +237,10 @@ namespace WebApplication11.Pages
         public string StoreName { get; set; } = "My Sari-Sari Store";
         public string Description { get; set; } = "Welcome to my online tindahan!";
         public string ThemeColor { get; set; } = "#4f46e5";
+
+        // --- NEW: GPS COORDINATES (Defaults to Manila/Quezon City area) ---
+        public double Latitude { get; set; } = 14.6091;
+        public double Longitude { get; set; } = 121.0223;
 
         // Stores the last AI analysis so we don't spam the API
         public AiReportCache? LastReport { get; set; }

@@ -101,12 +101,12 @@ namespace WebApplication11.Pages
                 CurrentView = "marketplace";
                 var storeCollection = _db.GetCollection<Store>(StoreCollectionName);
 
-                // Add Mock Stores
-                MarketplaceStores.Add(new Store { Id = "mock_1", StoreName = "Aling Nena's Store", Description = "Philippines", ThemeColor = "#ea580c" });
-                MarketplaceStores.Add(new Store { Id = "mock_2", StoreName = "Metro Mart Finds", Description = "Philippines", ThemeColor = "#16a34a" });
-                MarketplaceStores.Add(new Store { Id = "mock_3", StoreName = "Daily Needs Deals", Description = "Philippines", ThemeColor = "#2563eb" });
-                MarketplaceStores.Add(new Store { Id = "mock_4", StoreName = "Chahod Stores", Description = "Philippines", ThemeColor = "#d97706" });
-                MarketplaceStores.Add(new Store { Id = "mock_5", StoreName = "Rabmat Stores", Description = "Philippines", ThemeColor = "#ca8a04" });
+                // Add Mock Stores with Coordinates (Simulating locations around Metro Manila)
+                MarketplaceStores.Add(new Store { Id = "mock_1", StoreName = "Aling Nena's Store", Description = "Quiapo, Manila", ThemeColor = "#ea580c", Latitude = 14.5995, Longitude = 120.9842 });
+                MarketplaceStores.Add(new Store { Id = "mock_2", StoreName = "Metro Mart Finds", Description = "Makati City", ThemeColor = "#16a34a", Latitude = 14.5547, Longitude = 121.0244 });
+                MarketplaceStores.Add(new Store { Id = "mock_3", StoreName = "Daily Needs Deals", Description = "Quezon City", ThemeColor = "#2563eb", Latitude = 14.6760, Longitude = 121.0437 });
+                MarketplaceStores.Add(new Store { Id = "mock_4", StoreName = "Chahod Stores", Description = "Pasig City", ThemeColor = "#d97706", Latitude = 14.5764, Longitude = 121.0851 });
+                MarketplaceStores.Add(new Store { Id = "mock_5", StoreName = "Rabmat Stores", Description = "Mandaluyong", ThemeColor = "#ca8a04", Latitude = 14.5794, Longitude = 121.0359 });
 
                 // FETCH LOGGED IN USER'S STORE (Real DB)
                 if (User.Identity?.IsAuthenticated == true)

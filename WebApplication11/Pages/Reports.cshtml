@@ -7,11 +7,70 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+    /* --- BENTO GRID SYSTEM --- */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 1.5rem;
+    }
+
+    .bento-col-span-12 {
+        grid-column: span 12 / span 12;
+    }
+
+    .bento-col-span-8 {
+        grid-column: span 12 / span 12;
+    }
+    /* Mobile: Full */
+    .bento-col-span-4 {
+        grid-column: span 12 / span 12;
+    }
+    /* Mobile: Full */
+
+    @@media (min-width: 1024px) {
+        .bento-col-span-8 {
+            grid-column: span 8 / span 12;
+        }
+
+        .bento-col-span-4 {
+            grid-column: span 4 / span 12;
+        }
+    }
+
+    /* --- ASYMMETRICAL CARDS --- */
+    .glass-card {
+        background: white;
+        border: 1px solid #f3f4f6;
+        border-radius: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+    /* --- AI HUB STYLES --- */
+    .ai-hub-gradient {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+    }
+
+    .locked-state {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px dashed rgba(255, 255, 255, 0.3);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    /* --- PDF HELPERS --- */
     .pdf-bg-white {
         background-color: #ffffff !important;
     }
 
-    /* PDF Appendix: Hidden on screen, Visible in PDF */
     #pdf-appendix {
         display: none;
     }
@@ -23,377 +82,251 @@
         padding-top: 2rem;
     }
 
-    /* --- PDF LAYOUT FIXES (STACKED APPROACH) --- */
-    .pdf-mode {
-        width: 800px !important;
-        /* Standard Page Width */
-        margin: 0 auto;
-        background-color: white;
-        padding: 30px !important;
-        height: auto !important; /* CRITICAL: Allows full height expansion */
-        overflow: visible !important;
-        /* CRITICAL: Ensure no clipping */
-    }
-
-        /* Force Vertical Stacking in PDF to prevent cutoff */
-        .pdf-mode .pdf-grid-stack {
-            display: block !important;
-            width: 100% !important;
-        }
-
-        /* Make columns full width in PDF */
-        .pdf-mode .pdf-col-full {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin-bottom: 2rem !important;
-            flex: none !important;
-        }
-
-        /* Adjust Chart Sizes for PDF */
-        .pdf-mode canvas {
-            max-height: 300px !important;
-            width: 100% !important;
-        }
-
-        /* Hide interactive toggles in PDF */
-        .pdf-mode .chart-toggle-container {
-            display: none !important;
-        }
-
-        /* Prevent charts/cards from being sliced in half */
-        .pdf-mode .bg-white,
-        .pdf-mode .rounded-xl {
-            page-break-inside: avoid;
-        }
-
-    /* Toggle Button Styles */
     .chart-toggle.active {
-        background-color: #ffffff;
-        color: #4f46e5;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    .chart-toggle {
-        color: #6b7280;
-        padding: 0.25rem 0.75rem;
-        border-radius: 0.375rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        transition: all 0.2s;
-    }
-
-        .chart-toggle:hover {
-            color: #4f46e5;
-        }
-
-    /* NEW: AI Report Styles */
-    .ai-report-box {
-        background: #f0f4ff;
-        /* Light indigo background */
-        border: 2px solid #6366f1;
-        /* Indigo border */
-        border-radius: 1rem;
-        padding: 1.5rem;
-        page-break-inside: avoid;
-    }
-
-    .ai-report-title {
-        color: #3730a3;
-        /* Darker indigo for emphasis */
+        background-color: #e0e7ff;
+        color: #4338ca;
     }
 </style>
 
-<div class="space-y-6">
+<div class="space-y-6 pb-20">
 
-    @* --- TOP HEADER (Excluded from Print/Capture) --- *@
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100" data-html2canvas-ignore="true">
+    @* --- HEADER --- *@
+    <div class="flex justify-between items-end mb-4">
         <div>
-            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Business Insights</h1>
-            <p class="text-sm text-gray-500 mt-1">
+            <h1 class="text-3xl font-black text-gray-900 tracking-tight">Command Center</h1>
+            <p class="text-sm text-gray-500">
                 @if (Model.LastAnalysisDate.HasValue)
                 {
-                    <span class="text-green-600 font-medium">Last analyzed: @Model.LastAnalysisDate.Value.ToLocalTime().ToString("MMM dd, hh:mm tt")</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Systems Online • Last update: @Model.LastAnalysisDate.Value.ToLocalTime().ToString("h:mm tt")</span>
                 }
                 else
                 {
-                    <span class="text-orange-500">No analysis data yet.</span>
+                    <span class="flex items-center gap-1 text-orange-500"><span class="w-2 h-2 rounded-full bg-orange-500"></span> Calibration Needed</span>
                 }
             </p>
         </div>
-        <div class="mt-4 md:mt-0 flex flex-col md:flex-row gap-3 items-center">
-            <form method="post" asp-page-handler="Analyze"><button type="submit" class="group relative inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-white transition-all duration-200 bg-indigo-600 rounded-full focus:outline-none hover:bg-indigo-700 shadow-md"><span>Re-Analyze (AI)</span></button></form>
 
-            @* DOWNLOAD FORM TARGETING CSV HANDLER *@
-            <form method="post" asp-page-handler="DownloadReport">
-                <button type="submit"
-                        class="group relative inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-700 transition-all duration-200 bg-white border-2 border-gray-200 rounded-full hover:bg-gray-50 hover:text-indigo-600 shadow-sm">
-                    <span>Download CSV Report</span>
-                </button>
-            </form>
-
-            <form method="post" asp-page-handler="SeedHistory" onsubmit="return confirm('Generate random data? This creates 90 days of history.');">
-                <button type="submit" class="text-gray-500 hover:text-gray-700 text-sm font-medium underline ml-2">🎲 Gen Data</button>
-            </form>
-        </div>
+        @* FAB for Export (Clean Look) *@
+        <form method="post" asp-page-handler="DownloadReport">
+            <button type="submit" class="bg-white border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-600 px-4 py-2 rounded-full text-xs font-bold transition shadow-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export Data
+            </button>
+        </form>
     </div>
 
-    @* --- REPORT CONTENT (Captures for PDF/Print) --- *@
-    <div id="report-content" class="p-2 md:p-4 pdf-bg-white space-y-6">
+    @* --- BENTO GRID LAYOUT --- *@
+    <div id="report-content" class="bento-grid">
 
-        @* Title Header *@
-        <div class="border-b-2 border-indigo-900 pb-4">
-            <div class="flex justify-between items-end">
-                <div><h1 class="text-4xl font-extrabold text-gray-900">Performance Report</h1><p class="text-gray-500 mt-1">Generated: @DateTime.Now.ToString("MMMM dd, yyyy")</p></div>
-                <div class="text-right"><h2 class="text-xl font-bold text-indigo-700">Sari-Sari Store</h2></div>
+        @* --- 1. FINANCIAL PULSE (Hero Card) --- *@
+        <div class="glass-card bento-col-span-8 p-6 flex flex-col justify-between relative">
+            <div class="flex justify-between items-start mb-6">
+                <div class="flex gap-8">
+                    <div>
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide">Total Revenue</p>
+                        <h2 class="text-3xl font-black text-gray-900 price-display" data-price-php="@Model.TotalRevenue">₱@Model.TotalRevenue.ToString("N2")</h2>
+                    </div>
+                    <div class="hidden sm:block w-px bg-gray-100 h-12"></div>
+                    <div>
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide">Net Profit</p>
+                        <h2 class="text-3xl font-black text-emerald-600 price-display" data-price-php="@Model.TotalProfit">₱@Model.TotalProfit.ToString("N2")</h2>
+                    </div>
+                </div>
+
+                @* Chart Toggles *@
+                <div class="bg-gray-50 p-1 rounded-lg flex text-xs font-bold" data-html2canvas-ignore="true">
+                    <button onclick="updateSalesChart('daily')" id="btn-sales-daily" class="chart-toggle px-3 py-1 rounded-md active">7D</button>
+                    <button onclick="updateSalesChart('monthly')" id="btn-sales-monthly" class="chart-toggle px-3 py-1 rounded-md text-gray-500 hover:text-indigo-600">Month</button>
+                    <button onclick="updateSalesChart('quarterly')" id="btn-sales-quarterly" class="chart-toggle px-3 py-1 rounded-md text-gray-500 hover:text-indigo-600">Qtr</button>
+                </div>
+            </div>
+
+            @* Main Chart Area *@
+            <div class="h-64 w-full relative">
+                <canvas id="salesChart"></canvas>
             </div>
         </div>
 
-        @* KPI Cards *@
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-white p-5 rounded-xl border-l-4 border-indigo-600 shadow-sm ring-1 ring-gray-100">
-                <p class="text-xs font-bold text-gray-400 uppercase">Total Revenue</p>
-                <h2 class="text-2xl font-extrabold text-gray-900 mt-1 price-display" data-price-php="@Model.TotalRevenue">₱@Model.TotalRevenue.ToString("N2")</h2>
-            </div>
-            <div class="bg-white p-5 rounded-xl border-l-4 border-emerald-500 shadow-sm ring-1 ring-gray-100">
-                <p class="text-xs font-bold text-gray-400 uppercase">Net Profit</p>
-                <h2 class="text-2xl font-extrabold text-emerald-600 mt-1 price-display" data-price-php="@Model.TotalProfit">₱@Model.TotalProfit.ToString("N2")</h2>
-            </div>
-            <div class="bg-gradient-to-br from-indigo-600 to-purple-700 p-5 rounded-xl border-l-4 border-purple-900 shadow-lg text-white">
-                <p class="text-xs font-bold text-indigo-200 uppercase">AI Prediction (7 Days)</p>
-                <h2 class="text-2xl font-extrabold mt-2 price-display" data-price-php="@Model.ForecastedRevenue">₱@Model.ForecastedRevenue.ToString("N2")</h2>
-            </div>
-            <div class="bg-white p-5 rounded-xl border-l-4 border-red-500 shadow-sm ring-1 ring-gray-100">
-                <p class="text-xs font-bold text-gray-400 uppercase">Restock Needed</p>
-                <h2 class="text-2xl font-extrabold text-red-600 mt-1">@Model.LowStockItems.Count</h2>
-            </div>
-        </div>
+        @* --- 2. SARI AI HUB (The Gatekeeper) --- *@
+        <div class="glass-card bento-col-span-4 ai-hub-gradient p-6 flex flex-col relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 bg-white opacity-10 rounded-full blur-2xl"></div>
 
-        @* --- MAIN CONTENT (STACKED IN PDF) --- *@
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 pdf-grid-stack">
-
-            @* --- LEFT COLUMN: Charts --- *@
-            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100 pdf-col-full">
-
-                @* 1. SALES CHART *@
+            <div class="flex items-center gap-3 mb-6 relative z-10">
+                <div class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-xl shadow-inner">🧠</div>
                 <div>
-                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                        <h3 class="text-lg font-bold text-gray-800">Sales Trend</h3>
-                        <div class="bg-gray-100 p-1 rounded-lg flex chart-toggle-container" data-html2canvas-ignore="true">
-                            <button onclick="updateSalesChart('daily')" id="btn-sales-daily"
-                                    class="chart-toggle active">
-                                Daily
-                            </button>
-                            <button onclick="updateSalesChart('monthly')" id="btn-sales-monthly" class="chart-toggle">Monthly</button>
-                            <button onclick="updateSalesChart('quarterly')" id="btn-sales-quarterly" class="chart-toggle">Quarterly</button>
-                        </div>
-                    </div>
-                    <div class="h-64 w-full relative overflow-hidden">
-                        <canvas id="salesChart"></canvas>
-                    </div>
-                </div>
-
-                @* 2. REVENUE BY CATEGORY *@
-                <div class="pt-8 mt-8 border-t border-gray-100">
-                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                        <h3 class="font-bold text-gray-800 flex items-center gap-2"><span class="text-xl">📊</span> Revenue by Category</h3>
-                        <div class="bg-gray-100 p-1 rounded-lg flex chart-toggle-container" data-html2canvas-ignore="true">
-                            <button onclick="updateCategoryChart('all')" id="btn-cat-all" class="chart-toggle active">All Time</button>
-                            <button onclick="updateCategoryChart('month')" id="btn-cat-month" class="chart-toggle">This Month</button>
-                            <button onclick="updateCategoryChart('quarter')" id="btn-cat-quarter" class="chart-toggle">This Quarter</button>
-                        </div>
-                    </div>
-                    <div class="h-64 w-full flex justify-center items-center relative overflow-hidden">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                </div>
-
-                @* 3. TOP PERFORMERS *@
-                <div class="pt-8 mt-8 border-t border-gray-100">
-                    <h3 class="font-bold text-gray-800 mb-4">🏆 Top Performers</h3>
-                    <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-gray-400 uppercase bg-white border-b"><tr><th class="py-2">Product</th><th class="py-2 w-1/3">Performance</th><th class="py-2 text-right">Revenue</th></tr></thead>
-                        <tbody class="divide-y divide-gray-50">
-                            @foreach (var item in Model.TopSellingItems)
-                            {
-                                var max = Model.TopSellingItems.Max(x => x.QuantitySold);
-                                var width = max > 0 ? (item.QuantitySold / (double)max) * 100 : 0;
-                                <tr>
-                                    <td class="py-3 font-medium text-gray-800">@item.Name</td>
-                                    <td class="py-3"><div class="flex items-center gap-3"><span class="text-xs font-bold w-6 text-right">@item.QuantitySold</span><div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-indigo-500 h-2 rounded-full" style="width: @width%"></div></div></div></td>
-                                    <td class="py-3 text-right font-mono text-gray-600 price-display" data-price-php="@item.TotalRevenue">₱@item.TotalRevenue.ToString("N0")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                    <h3 class="font-bold text-lg leading-none">Sari Intelligence</h3>
+                    <p class="text-xs text-indigo-100 opacity-80 mt-1">Market Advisor</p>
                 </div>
             </div>
 
-            @* --- RIGHT COLUMN: Sidebar (Stacks BELOW in PDF) --- *@
-            <div class="space-y-6 pdf-col-full">
-                <div class="bg-purple-50 p-6 rounded-xl border border-purple-100 relative z-10">
-                    <div class="flex items-center gap-2 mb-3"><span class="text-xl">📅</span><h3 class="font-bold text-purple-900">Sari's Event Radar</h3></div>
-                    <p class="text-sm text-purple-800 leading-relaxed">@Model.HolidayPrediction</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative z-10">
-                    <h3 class="font-bold text-gray-800 mb-4">Action Plan</h3>
-                    <ul class="space-y-3">
-                        @foreach (var tip in Model.ActionableTips)
-                        {
-                            <li class="flex items-start gap-3 text-sm text-gray-600"><span class="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></span>@tip</li>
-                        }
-                    </ul>
-                </div>
+            <div class="flex-grow relative z-10">
+                @if (!Model.HasInventory)
+                {
+                    <div class="locked-state flex flex-col items-center justify-center h-full">
+                        <svg class="w-8 h-8 text-indigo-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        <p class="text-sm font-bold text-white mb-1">Module Locked</p>
+                        <p class="text-xs text-indigo-100 opacity-80 text-center">Add at least 1 product to unlock AI simulations.</p>
+                        <a href="/Dash" class="mt-4 px-4 py-2 bg-white text-indigo-600 text-xs font-bold rounded-full hover:bg-indigo-50 transition">Go to Inventory</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="space-y-4">
+                        <div class="bg-white/10 rounded-xl p-4 border border-white/10 backdrop-blur-sm">
+                            <p class="text-xs font-bold text-indigo-200 uppercase mb-1">Forecast Insight</p>
+                            <p class="text-sm font-medium leading-relaxed">@Model.HolidayPrediction</p>
+                        </div>
 
-                @* Slow Moving Items *@
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative z-10">
-                    <div class="px-6 py-4 border-b border-gray-50 bg-gray-50 flex justify-between items-center"><h3 class="font-bold text-gray-800">Slow Moving</h3><span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Discount?</span></div>
-                    <table class="w-full text-left text-sm text-gray-600">
-                        <thead class="bg-gray-50 text-xs uppercase text-gray-400 font-medium"><tr><th class="px-6 py-3">Item</th><th class="px-6 py-3 text-center">Stock</th></tr></thead>
-                        <tbody class="divide-y divide-gray-50">
-                            @if (Model.SlowMovingItems.Count == 0)
-                            {
-                                <tr><td colspan="2" class="px-6 py-8 text-center text-gray-400">No stagnant stock.</td></tr>
-                            }
-                            else
-                            {
-                                foreach (var item in Model.SlowMovingItems)
-                                {
-                                    <tr class="hover:bg-gray-50 transition"><td class="px-6 py-4 font-medium text-gray-900">@item.Name</td><td class="px-6 py-4 text-center">@item.Quantity</td></tr>
-                                }
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <form method="post" asp-page-handler="Analyze" class="w-full">
+                                <button type="submit" class="w-full py-3 bg-white/20 hover:bg-white/30 border border-white/20 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1">
+                                    <span class="text-lg">↻</span>
+                                    <span>Re-Analyze</span>
+                                </button>
+                            </form>
 
-                @* --- NEW: RECENT TRANSACTIONS TABLE --- *@
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative z-10">
-                    <div class="px-6 py-4 border-b border-gray-50 bg-gray-50 flex justify-between items-center"><h3 class="font-bold text-gray-800">Recent Transactions</h3><span class="text-xs text-gray-500 px-2 py-1 rounded">Last 20 Orders</span></div>
-                    <table class="w-full text-left text-sm text-gray-600">
-                        <thead class="bg-gray-50 text-xs uppercase text-gray-400 font-medium"><tr><th class="px-4 py-3">Order</th><th class="px-4 py-3">Date</th><th class="px-4 py-3 text-right">Total</th></tr></thead>
-                        <tbody class="divide-y divide-gray-50">
-                            @if (Model.RecentOrders.Count == 0)
-                            {
-                                <tr><td colspan="3" class="px-4 py-4 text-center text-gray-400">No recent orders found.</td></tr>
-                            }
-                            else
-                            {
-                                foreach (var order in Model.RecentOrders)
-                                {
-                                    <tr class="hover:bg-gray-50 transition">
-                                        <td class="px-4 py-3 font-medium text-gray-900">@order.OrderCode</td>
-                                        <td class="px-4 py-3 text-gray-500">@order.OrderDate.ToString("MMM dd, hh:mm tt")</td>
-                                        <td class="px-4 py-3 text-right font-mono price-display" data-price-php="@order.TotalAmount">₱@order.TotalAmount.ToString("N2")</td>
-                                    </tr>
-                                }
-                            }
-                        </tbody>
-                    </table>
-                </div>
-                @* --- END NEW SECTION --- *@
-
+                            <form method="post" asp-page-handler="RunSimulation" class="w-full" onsubmit="return confirm('Run AI Market Simulation? This will generate predictive sales data based on your current inventory.');">
+                                <button type="submit" class="w-full py-3 bg-white text-indigo-600 hover:bg-indigo-50 border border-transparent rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 shadow-lg">
+                                    <span class="text-lg">⚡</span>
+                                    <span>Run Sim</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
             </div>
         </div>
 
-        @* --- PDF APPENDIX: DETAILED SUMMARY TABLES & AI REPORT (Hidden on screen) --- *@
-        <div id="pdf-appendix">
-            <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Detailed Report Summary</h2>
+        @* --- 3. ALERTS & METRICS --- *@
 
-            {{-- NEW: SARI AI ANALYSIS REPORT --}}
-            <div class="ai-report-box mb-8">
-                <h3 class="text-xl font-black ai-report-title mb-4 flex items-center gap-2">
-                    <span class="text-3xl">✨</span> Sari's Intelligent Analysis
-                </h3>
+        @* Low Stock *@
+        <div class="glass-card bento-col-span-4 p-5 flex items-center justify-between border-l-4 border-l-orange-500">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase">Restock Alert</p>
+                <h3 class="text-2xl font-black text-gray-900">@Model.LowStockItems.Count <span class="text-sm font-medium text-gray-400">items</span></h3>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+        </div>
 
-                <p class="text-sm text-gray-700 mb-4">
-                    This section provides predictive modeling and actionable advice generated by the Sari AI engine, based on your store's recent sales data.
-                    @if (Model.LastAnalysisDate.HasValue)
+        @* Total Orders *@
+        <div class="glass-card bento-col-span-4 p-5 flex items-center justify-between border-l-4 border-l-blue-500">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase">Total Orders</p>
+                <h3 class="text-2xl font-black text-gray-900">@Model.TotalOrders</h3>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+            </div>
+        </div>
+
+        @* Forecast Value *@
+        <div class="glass-card bento-col-span-4 p-5 flex items-center justify-between border-l-4 border-l-purple-500">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase">AI 7-Day Revenue</p>
+                <h3 class="text-2xl font-black text-purple-600 price-display" data-price-php="@Model.ForecastedRevenue">₱@Model.ForecastedRevenue.ToString("N0")</h3>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+            </div>
+        </div>
+
+        @* --- 4. TOP PERFORMERS (Compact) --- *@
+        <div class="glass-card bento-col-span-4 p-6">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">🏆 Top Products</h3>
+            <div class="space-y-4">
+                @if (Model.TopSellingItems.Any())
+                {
+                    foreach (var item in Model.TopSellingItems.Take(4))
                     {
-                        <span class="font-bold text-indigo-700 block mt-1">Last Analysis Run: @Model.LastAnalysisDate.Value.ToLocalTime().ToString("MMMM dd, yyyy, hh:mm tt")</span>
+                        var max = Model.TopSellingItems.Max(x => x.QuantitySold);
+                        var width = max > 0 ? (item.QuantitySold / (double)max) * 100 : 0;
+
+                        <div class="relative">
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-gray-700 truncate max-w-[70%]">@item.Name</span>
+                                <span class="font-mono text-gray-500 price-display" data-price-php="@item.TotalRevenue">₱@item.TotalRevenue</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-indigo-500 h-1.5 rounded-full" style="width: @width%"></div>
+                            </div>
+                        </div>
                     }
-                </p>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="p-4 bg-white rounded-lg shadow-sm border border-indigo-200">
-                        <p class="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">7-Day Revenue Forecast</p>
-                        <h4 class="text-2xl font-extrabold text-indigo-900 price-display" data-price-php="@Model.ForecastedRevenue">₱@Model.ForecastedRevenue.ToString("N2")</h4>
-                    </div>
-                    <div class="p-4 bg-white rounded-lg shadow-sm border border-purple-200 md:col-span-2">
-                        <p class="text-xs font-bold text-purple-500 uppercase tracking-wider mb-1">Key Event/Holiday Prediction</p>
-                        <p class="text-sm text-gray-800 leading-relaxed">@Model.HolidayPrediction</p>
-                    </div>
-                </div>
-
-                <div class="mt-6 border-t border-indigo-200 pt-6">
-                    <h4 class="text-lg font-bold text-indigo-700 mb-3">Recommended Action Plan</h4>
-                    <ul class="space-y-2">
-                        @foreach (var tip in Model.ActionableTips)
-                        {
-                            <li class="flex items-start gap-2 text-sm text-gray-700">
-                                <span class="text-green-600 font-bold flex-shrink-0">✓</span>
-                                <span>@tip</span>
-                            </li>
-                        }
-                    </ul>
-                </div>
-            </div>
-
-            <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Historical Sales Breakdown</h2>
-
-            <div class="grid grid-cols-2 gap-8">
-                <div class="bg-gray-50 p-4 rounded-xl">
-                    <h3 class="font-bold text-gray-700 mb-4">Monthly Performance</h3>
-                    <table class="w-full text-xs text-left">
-                        <thead class="uppercase text-gray-400 font-bold border-b"><tr><th class="py-2">Month</th><th class="py-2 text-right">Revenue</th></tr></thead>
-                        <tbody>
-                            @foreach (var m in Model.MonthlyStats)
-                            {
-                                <tr class="border-b border-gray-100"><td class="py-2 font-medium">@m.Label</td><td class="py-2 text-right price-display" data-price-php="@m.Total">₱@m.Total.ToString("N2")</td></tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="bg-gray-50 p-4 rounded-xl">
-                    <h3 class="font-bold text-gray-700 mb-4">Quarterly Performance</h3>
-                    <table class="w-full text-xs text-left">
-                        <thead class="uppercase text-gray-400 font-bold border-b"><tr><th class="py-2">Quarter</th><th class="py-2 text-right">Revenue</th></tr></thead>
-
-
-                        <tbody>
-                            @foreach (var q in Model.QuarterlyStats)
-                            {
-                                <tr class="border-b border-gray-100">
-                                    <td class="py-2 font-medium">@q.Label</td>
-                                    <td class="py-2 text-right price-display"
-                                        data-price-php="@q.Total">
-                                        ₱@q.Total.ToString("N2")
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="mt-6 text-center text-xs text-gray-400">
-                Data exported from Sari-Sari Command Center on @DateTime.Now.ToString()
+                }
+                else
+                {
+                    <p class="text-xs text-gray-400 text-center py-4">No sales data recorded.</p>
+                }
             </div>
         </div>
 
+        @* --- 5. CATEGORY BREAKDOWN --- *@
+        <div class="glass-card bento-col-span-4 p-6">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">📊 Category Split</h3>
+            <div class="h-48 relative">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+
+        @* --- 6. SLOW MOVERS (Compact) --- *@
+        <div class="glass-card bento-col-span-4 p-6">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">🐢 Slow Movers <span class="text-[10px] bg-red-100 text-red-600 px-2 rounded-full ml-auto">Overstock</span></h3>
+            <ul class="space-y-3">
+                @if (Model.SlowMovingItems.Any())
+                {
+                    foreach (var item in Model.SlowMovingItems.Take(4))
+                    {
+                        <li class="flex justify-between items-center text-xs">
+                            <span class="text-gray-600 truncate max-w-[70%]">@item.Name</span>
+                            <span class="font-bold bg-gray-100 px-2 py-1 rounded text-gray-700">@item.Quantity left</span>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li class="text-xs text-gray-400 text-center py-4">Inventory is healthy.</li>
+                }
+            </ul>
+        </div>
     </div>
+
+    @* --- PDF APPENDIX (Hidden on screen) --- *@
+    <div id="pdf-appendix">
+        @* Simplified Appendix for printing *@
+        <h2 class="text-2xl font-bold mb-4">Detailed Report</h2>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <h3 class="font-bold border-b pb-2 mb-2">Monthly Sales</h3>
+                <table class="w-full text-xs">
+                    @foreach (var m in Model.MonthlyStats)
+                    {
+                        <tr><td class="py-1">@m.Label</td><td class="text-right">₱@m.Total.ToString("N2")</td></tr>
+                    }
+                </table>
+            </div>
+            <div>
+                <h3 class="font-bold border-b pb-2 mb-2">Quarterly Sales</h3>
+                <table class="w-full text-xs">
+                    @foreach (var q in Model.QuarterlyStats)
+                    {
+                        <tr><td class="py-1">@q.Label</td><td class="text-right">₱@q.Total.ToString("N2")</td></tr>
+                    }
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
     const salesDataStore = {
         daily: { labels: @Html.Raw(Model.SalesChartLabels), data: @Html.Raw(Model.SalesChartData), forecast: @Html.Raw(Model.ForecastChartData) },
-        monthly: { labels: @Html.Raw(Model.MonthlySalesLabels), data: @Html.Raw(Model.MonthlySalesData),
-            forecast: [] },
-        quarterly: { labels: @Html.Raw(Model.QuarterlySalesLabels), data: @Html.Raw(Model.QuarterlySalesData), forecast: [] }
+        monthly: { labels: @Html.Raw(Model.MonthlySalesLabels), data: @Html.Raw(Model.MonthlySalesData), forecast: @Html.Raw(Model.MonthlyForecastData) },
+        quarterly: { labels: @Html.Raw(Model.QuarterlySalesLabels), data: @Html.Raw(Model.QuarterlySalesData), forecast: @Html.Raw(Model.QuarterlyForecastData) }
     };
     const catDataStore = {
-        all: { labels: @Html.Raw(Model.CategoryLabels), data: @Html.Raw(Model.CategoryData) },
-        month: { labels: @Html.Raw(Model.CategoryMonthlyLabels), data: @Html.Raw(Model.CategoryMonthlyData) },
-        quarter: { labels: @Html.Raw(Model.CategoryQuarterlyLabels), data: @Html.Raw(Model.CategoryQuarterlyData) }
+        all: { labels: @Html.Raw(Model.CategoryLabels), data: @Html.Raw(Model.CategoryData) }
     };
     let salesChart, categoryChart;
 
@@ -403,6 +336,7 @@
         const savedCurrency = localStorage.getItem('sariCurrency') || 'PHP';
         if(window.applyCurrency) window.applyCurrency(savedCurrency);
     });
+
     function initSalesChart() {
         const ctx = document.getElementById('salesChart').getContext('2d');
         salesChart = new Chart(ctx, {
@@ -410,27 +344,26 @@
             data: {
                 labels: salesDataStore.daily.labels,
                 datasets: [
-                    { label: 'Actual Sales', data: salesDataStore.daily.data, borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', borderWidth: 3, tension:
-                        0.4, fill: true },
-                    { label: 'AI Forecast', data: salesDataStore.daily.forecast, borderColor: '#a855f7', borderDash: [5, 5], borderWidth: 2, tension: 0.4, pointStyle: 'star' }
+                    { label: 'Actual', data: salesDataStore.daily.data, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 3, tension: 0.4, fill: true },
+                    { label: 'Forecast', data: salesDataStore.daily.forecast, borderColor: '#8b5cf6', borderDash: [5, 5], borderWidth: 2, tension: 0.4, pointStyle: 'rectRot' }
                 ]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true,
-                grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } } }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
         });
     }
 
     function updateSalesChart(mode) {
-        document.querySelectorAll('[id^="btn-sales-"]').forEach(b => b.classList.remove('active'));
-        document.getElementById(`btn-sales-${mode}`).classList.add('active');
+        document.querySelectorAll('[id^="btn-sales-"]').forEach(b => {
+            b.classList.remove('active', 'bg-white', 'text-indigo-600', 'shadow-sm');
+            b.classList.add('text-gray-500');
+        });
+        const btn = document.getElementById(`btn-sales-${mode}`);
+        btn.classList.add('active', 'bg-white', 'text-indigo-600', 'shadow-sm');
+        btn.classList.remove('text-gray-500');
+
         salesChart.data.labels = salesDataStore[mode].labels;
         salesChart.data.datasets[0].data = salesDataStore[mode].data;
-        if(mode === 'daily') {
-            salesChart.data.datasets[1].hidden = false;
-            salesChart.data.datasets[1].data = salesDataStore[mode].forecast;
-        } else {
-            salesChart.data.datasets[1].hidden = true;
-        }
+        salesChart.data.datasets[1].data = salesDataStore[mode].forecast;
         salesChart.update();
     }
 
@@ -440,17 +373,9 @@
             type: 'doughnut',
             data: {
                 labels: catDataStore.all.labels,
-                datasets: [{ data: catDataStore.all.data, backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444'], borderWidth: 0, hoverOffset: 10 }]
+                datasets: [{ data: catDataStore.all.data, backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'], borderWidth: 0, hoverOffset: 4 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 15 } } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
         });
-    }
-
-    function updateCategoryChart(mode) {
-        document.querySelectorAll('[id^="btn-cat-"]').forEach(b => b.classList.remove('active'));
-        document.getElementById(`btn-cat-${mode}`).classList.add('active');
-        categoryChart.data.labels = catDataStore[mode].labels;
-        categoryChart.data.datasets[0].data = catDataStore[mode].data;
-        categoryChart.update();
     }
 </script>
